@@ -12,9 +12,22 @@ export default function App() {
 
   useEffect(() => {
     requestAccess();
+  }, []);
+
+  useEffect(() => {
+    let disconnectSubscription;
+    if (connectedDevice) {
+      disconnectSubscription = RNBluetoothClassic.onDeviceDisconnected(event => {
+        if (event.device.address === connectedDevice.address) {
+          setConnectedDevice(null);
+          Alert.alert("Desconectado", "El MICA cerró la conexión (probablemente para conectar el WiFi).");
+        }
+      });
+    }
+    
     return () => {
-      if (connectedDevice) {
-        connectedDevice.disconnect();
+      if (disconnectSubscription) {
+        disconnectSubscription.remove();
       }
     };
   }, [connectedDevice]);
