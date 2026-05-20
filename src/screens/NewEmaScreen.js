@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, FlatList, Alert, ActivityIndicator } from 'react-native';
-import { requestBluetoothPermissions } from '../services/permissions';
+import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import { scanForDevices, connectToDevice } from '../services/bluetoothService';
 
 export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
@@ -26,16 +26,18 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
   }, [scanState]);
 
   const executeDeviceDiscovery = async () => {
-    const hasPermissions = await requestBluetoothPermissions();
-    if (!hasPermissions) {
-      Alert.alert('Permisos requeridos', 'Necesitas aceptar los permisos para buscar tu EMA.');
-      setScanState('idle');
-      return;
-    }
-
     try {
+      // 1. Descubrir dispositivos Bluetooth en el entorno
       const discovered = await scanForDevices();
-      setDevices(discovered);
+      
+      // 2. Obtener los dispositivos que ya están vinculados/emparejados en el teléfono
+      const bonded = await RNBluetoothClassic.getBondedDevices();
+      const bondedAddresses = bonded.map(d => d.address);
+
+      // 3. Filtrar para dejar ÚNICAMENTE los dispositivos que NO están vinculados
+      const nonBondedDevices = discovered.filter(device => !bondedAddresses.includes(device.address));
+
+      setDevices(nonBondedDevices);
       setScanState('results');
     } catch (error) {
       console.error("Error al escanear dispositivos:", error);
@@ -49,7 +51,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
       setConnectingId(rawDevice.address);
       const success = await connectToDevice(rawDevice);
       if (success) {
-        // Mapeamos el dispositivo al formato visual esperado
+        // Mapeamos el dispositivo al formato de la interfaz visual
         const name = rawDevice.name || 'Estación MICA';
         const mappedDevice = {
           id: rawDevice.address,
@@ -149,7 +151,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
           contentContainerStyle={{ paddingBottom: 40 }}
           ListHeaderComponent={
             <Text style={{ fontSize: 13, color: '#0f172a', fontWeight: '700', marginBottom: 20, textTransform: 'uppercase' }}>
-              Dispositivos Encontrados
+              Dispositivos No Vinculados
             </Text>
           }
           renderItem={({ item }) => (
@@ -191,8 +193,8 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 15 }}>
-              No se encontraron dispositivos Bluetooth activos en el entorno.
+            <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 15, paddingHorizontal: 16, lineHeight: 22 }}>
+              No se encontraron estaciones Bluetooth nuevas en el entorno o todas las cercanas ya se encuentran vinculadas.
             </Text>
           }
           ListFooterComponent={

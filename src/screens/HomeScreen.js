@@ -1,39 +1,64 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, Dimensions, Alert } from 'react-native';
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
+import { requestBluetoothPermissions } from '../services/permissions'; // Importamos tu servicio de permisos
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelectDevice }) {
   const [devices, setDevices] = useState([]);
+  const [hasPermissions, setHasPermissions] = useState(false);
 
-  // Recargar la lista cuando el componente se monta o cuando cambia activeTrigger (al volver de escanear)
+  // 1. Solicitar permisos al montar el Home por primera vez
   useEffect(() => {
-    fetchBluetoothDevices();
-  }, [activeTrigger]);
+    checkAndRequestPermissions();
+  }, []);
+
+  // 2. Recargar los dispositivos cuando cambie el trigger o cuando se otorguen los permisos
+  useEffect(() => {
+    if (hasPermissions) {
+      fetchBluetoothDevices();
+    }
+  }, [activeTrigger, hasPermissions]);
+
+  const checkAndRequestPermissions = async () => {
+    try {
+      const granted = await requestBluetoothPermissions();
+      if (granted) {
+        setHasPermissions(true);
+      } else {
+        Alert.alert(
+          'Permisos requeridos',
+          'La aplicación necesita permisos de Bluetooth y Ubicación para detectar tus estaciones MICA.'
+        );
+      }
+    } catch (error) {
+      console.error("Error al solicitar permisos en Home:", error);
+    }
+  };
 
   const fetchBluetoothDevices = async () => {
     try {
-      // 1. Obtener los que ya tienen una conexión RFCOMM abierta
+      // Obtener los que tienen canal RFCOMM activo
       const connected = await RNBluetoothClassic.getConnectedDevices();
       
-      // 2. Obtener los que están vinculados/emparejados en el sistema Android
+      // Obtener los emparejados en el sistema Android
       const bonded = await RNBluetoothClassic.getBondedDevices();
       
-      // Combinar ambas listas
+      // Combinar listas
       const allDevices = [...connected, ...bonded];
       
-      // Eliminar duplicados por dirección MAC (address)
+      // Limpiar duplicados por MAC address
       const uniqueDevices = Array.from(new Set(allDevices.map(d => d.address)))
         .map(address => allDevices.find(d => d.address === address));
 
-      // Filtrar para dejar únicamente los dispositivos que contengan "MICA" en su nombre
+      // Filtro estricto para mostrar solo los que contienen "MICA"
       const micaDevices = uniqueDevices.filter(device => {
         const name = device.name || '';
         return name.toLowerCase().includes('mica');
       });
 
-      // Mapear los datos reales al diseño visual estilizado
+      // Mapear al diseño de la interfaz
       const mapped = micaDevices.map(device => {
         const name = device.name || 'Estación MICA';
         return {
@@ -41,7 +66,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
           name: name,
           type: 'Estación Bluetooth',
           initial: name.charAt(0).toUpperCase(),
-          battery: null, // Se puede implementar más adelante con la lectura de características
+          battery: null,
           rawDevice: device
         };
       });
@@ -65,7 +90,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
         </Text>
       </View>
 
-      {/* BIENVENIDA / CARD GLOBAL */}
+      {/* BIENVENIDA */}
       <View style={{ paddingHorizontal: 24, marginBottom: 32 }}>
         <View style={{
           backgroundColor: '#0f172a',
@@ -89,7 +114,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
         </View>
       </View>
 
-      {/* LISTADO DE ESTACIONES */}
+      {/* LISTADO */}
       <FlatList
         data={devices}
         keyExtractor={(item) => item.id}
@@ -140,7 +165,6 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              {/* Avatar Circular con Inicial */}
               <View style={{
                 width: 52,
                 height: 52,
@@ -153,7 +177,6 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
                 <Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>{item.initial}</Text>
               </View>
 
-              {/* Textos del Dispositivo */}
               <View style={{ flex: 1, paddingRight: 8 }}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#0f172a' }}>{item.name}</Text>
                 <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '500', marginTop: 4 }}>
@@ -162,7 +185,6 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
               </View>
             </View>
 
-            {/* Botón de opciones */}
             <TouchableOpacity style={{ padding: 8 }}>
               <Text style={{ fontSize: 18, color: '#0f172a', fontWeight: '900' }}>•••</Text>
             </TouchableOpacity>
