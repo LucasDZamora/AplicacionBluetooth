@@ -116,7 +116,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
 
       {/* LISTADO */}
       <FlatList
-        data={devices}
+        data={devices || []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 60 }}
         ListHeaderComponent={

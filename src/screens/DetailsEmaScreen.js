@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
-export default function DetailsEmaScreen({ device, onBack }) {
-  const [opMode, setOpMode] = useState('ESTACIÓN'); // Estado para alternar el modo
+export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
+  const [opMode, setOpMode] = useState('ESTACIÓN'); // Estado para alternar el modo de operación
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }}>
@@ -30,7 +30,7 @@ export default function DetailsEmaScreen({ device, onBack }) {
         </Text>
       </View>
 
-      {/* DISPOSITIVO CARD */}
+      {/* DISPOSITIVO CARD (Sin botón de edición) */}
       <View style={{
         backgroundColor: '#ffffff',
         borderRadius: 28,
@@ -48,6 +48,7 @@ export default function DetailsEmaScreen({ device, onBack }) {
         marginBottom: 32
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          {/* Avatar Circular con Inicial */}
           <View style={{
             width: 64,
             height: 64,
@@ -57,11 +58,16 @@ export default function DetailsEmaScreen({ device, onBack }) {
             alignItems: 'center',
             marginRight: 16,
           }}>
-            <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>{device?.initial || 'M'}</Text>
+            <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>
+              {device?.initial || 'M'}
+            </Text>
           </View>
 
+          {/* Nombre y Estado de Batería */}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a' }}>{device?.name || 'Estación MICA'}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a' }}>
+              {device?.name || 'Estación MICA'}
+            </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
               <Text style={{ color: '#10b981', fontSize: 13, marginRight: 4 }}>🔋</Text>
               <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '700' }}>85% Batería</Text>
@@ -70,12 +76,13 @@ export default function DetailsEmaScreen({ device, onBack }) {
         </View>
       </View>
 
-      {/* MODO DE OPERACIÓN */}
-      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
+      {/* SECCIÓN: MODO DE OPERACIÓN */}
+      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '#800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
         Modo de Operación
       </Text>
 
       <View style={{ flexDirection: 'row', gap: 16, marginBottom: 32 }}>
+        
         {/* MODO ESTACIÓN */}
         <TouchableOpacity 
           onPress={() => setOpMode('ESTACIÓN')}
@@ -159,8 +166,8 @@ export default function DetailsEmaScreen({ device, onBack }) {
         </TouchableOpacity>
       </View>
 
-      {/* CONECTIVIDAD */}
-      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
+      {/* SECCIÓN: CONECTIVIDAD */}
+      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '#800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
         Conectividad
       </Text>
 
@@ -197,14 +204,18 @@ export default function DetailsEmaScreen({ device, onBack }) {
           </View>
         </View>
 
-        <TouchableOpacity style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: '#f1f5f9',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
+        {/* Botón de Ajustes (Engranaje) que dispara la pantalla de Wi-Fi */}
+        <TouchableOpacity 
+          onPress={onConfigWifi}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: '#f1f5f9',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}
+        >
           <Text style={{ fontSize: 16, color: '#64748b' }}>⚙️</Text>
         </TouchableOpacity>
       </View>

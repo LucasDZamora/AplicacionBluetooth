@@ -146,7 +146,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
       {/* ESTADO RESULTADOS (RESULTS) */}
       {scanState === 'results' && (
         <FlatList
-          data={devices}
+          data={devices || []}
           keyExtractor={(item) => item.address}
           contentContainerStyle={{ paddingBottom: 40 }}
           ListHeaderComponent={

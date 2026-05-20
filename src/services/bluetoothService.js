@@ -2,25 +2,20 @@ import RNBluetoothClassic from 'react-native-bluetooth-classic';
 
 export const scanForDevices = async () => {
   try {
-    // 1. Obtener los dispositivos que ya están vinculados/emparejados en el teléfono
     const paired = await RNBluetoothClassic.getBondedDevices();
     const pairedAddresses = paired.map(d => d.address);
 
     let unpaired = [];
     try {
-      // 2. Descubrir los dispositivos Bluetooth visibles en el entorno
       unpaired = await RNBluetoothClassic.startDiscovery();
     } catch (e) {
-      console.log("No se descubrieron dispositivos nuevos libres o discovery ya activo:", e);
+      console.log("No se descubrieron dispositivos nuevos libres:", e);
     }
     
-    // 3. Filtrar los descubiertos para EXCLUIR los que ya están vinculados
     const strictlyUnpaired = unpaired.filter(device => !pairedAddresses.includes(device.address));
     
-    // 4. Eliminar duplicados eventuales del escaneo usando su dirección física MAC única
     return Array.from(new Set(strictlyUnpaired.map(a => a.address)))
       .map(address => strictlyUnpaired.find(a => a.address === address));
-      
   } catch (e) {
     console.error("Error en escaneo nativo:", e);
     return [];
@@ -38,5 +33,28 @@ export const connectToDevice = async (device) => {
     });
   } catch (err) {
     throw new Error("No se pudo conectar al dispositivo");
+  }
+};
+
+export const sendWifiCredentials = async (rawDevice, ssid, password) => {
+  if (!rawDevice) {
+    throw new Error('No hay ningún dispositivo MICA conectado por Bluetooth.');
+  }
+  if (!ssid || !password) {
+    throw new Error('Por favor ingresa la Red y Contraseña');
+  }
+
+  try {
+    const isConnected = await rawDevice.isConnected();
+    if (!isConnected) {
+      await connectToDevice(rawDevice);
+    }
+
+    // Enviamos el formato plano esperado por tu protocolo al ESP32
+    const data = `${ssid},${password}\n`;
+    await rawDevice.write(data);
+    return true;
+  } catch (err) {
+    throw new Error(`Fallo al transmitir datos por BT: ${err.message}`);
   }
 };
