@@ -132,13 +132,20 @@ bool isDaylightSavings(int gpsDay, int gpsMonth) {
   return false;
 }
 //-----------------------------------------------
-#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 #include <Adafruit_NeoPixel.h>//Incluimos la librería en el código
-#include <Wifi.h>
+#include <WiFi.h>
 #include "time.h"
 
 #include <EEPROM.h>
 #define EEPROM_SIZE 128
+
+// Declaraciones para BLE MICA
+void inicializarBLE();
+void enviarDatosBLE();
+extern bool wifiCredentialsReceived;
+extern String receivedSSID;
+extern String receivedPASS;
+extern bool bleDeviceConnected;
 
 char ssid1[32] = {0};
 char password1[32] = {0};
@@ -388,157 +395,193 @@ void setup()
  
   if (valorPulsador == 1) 
   {
-   adq=1; //----------------------------------variable para saber si el dispositivo se conectó a wifi
-   //Serial.println("MODO CONEXION");
-   lcd.clear();
-   lcd.setCursor(2, 1);
-   lcd.print("Modo WIFIconfig");
-   delay(2000); 
-   lcd.clear();
-   lcd.setCursor(2, 1);
-   lcd.print("  Buscando red");
-   delay(2000); 
-   
-   
-   
-   // Inicialización de la memoria EEPROM
+    adq=1; //----------------------------------variable para saber si el dispositivo se conectó a wifi
+    lcd.clear();
+    lcd.setCursor(2, 1);
+    lcd.print("Modo BLEconfig");
+    delay(2000); 
+    lcd.clear();
+    lcd.setCursor(2, 1);
+    lcd.print("  Buscando red");
+    delay(2000); 
+    
+    // Inicialización de la memoria EEPROM
     EEPROM.begin(EEPROM_SIZE);
-  //BUSCA LAS REDES. Leer SSID y contraseña de las dos redes de la memoria EEPROM
+    // Leer SSID y contraseña de las dos redes de la memoria EEPROM
     EEPROM.get(0, ssid1);
     EEPROM.get(32, password1);
     EEPROM.get(64, ssid2);
     EEPROM.get(96, password2); 
 
     // Configurar el modo WiFi en modo estación (STA)
-  WiFi.mode(WIFI_STA);  
+    WiFi.mode(WIFI_STA);  
     
-  // Intentar conectar a la primera red guardada
-  if (strlen(ssid1) > 0) 
-  {
-    WiFi.begin(ssid1, password1);
-    //Serial.print("Conectando a la primera red guardada: ");
-    //Serial.println(ssid1);
-
-    unsigned long startTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
-    { // 10 segundos de tiempo de espera
-          delay(500);
-        //  Serial.print(".");
-    }
-
-    if (WiFi.status() == WL_CONNECTED) 
+    // Intentar conectar a la primera red guardada
+    if (strlen(ssid1) > 0) 
     {
-        //  Serial.println("\nConexión exitosa!");
-        //  Serial.print("Dirección IP: ");
-        //  Serial.println(WiFi.localIP());
+      WiFi.begin(ssid1, password1);
+      unsigned long startTime = millis();
+      while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
+      { // 10 segundos de tiempo de espera
+          delay(500);
+      }
+
+      if (WiFi.status() == WL_CONNECTED) 
+      {
          lcd.clear();
          lcd.setCursor(2, 1);
          lcd.print(" Red encontrada");
          delay(2000); 
-          connected = true;
-    } 
-  }
-
-  // Si la conexión a la primera red falla, intentar conectar a la segunda red guardada
-  if (!connected && strlen(ssid2) > 0) {
-    WiFi.begin(ssid2, password2);
-    //Serial.print("Conectando a la segunda red guardada: ");
-    //Serial.println(ssid2);
-    unsigned long startTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
-    {      // 10 segundos de tiempo de espera
-        delay(500);
-      //  Serial.print(".");
+         connected = true;
+      } 
     }
 
-    if (WiFi.status() == WL_CONNECTED) {
-      //Serial.println("\nConexión exitosa!");
-      //Serial.print("Dirección IP: ");
-      //Serial.println(WiFi.localIP());
-     lcd.clear();
-     lcd.setCursor(2, 1);
-     lcd.print(" Red encontrada");
-     delay(2000); 
-      connected = true;
-    }
-  }   
- if (!connected) 
- {  
-   lcd.clear();
-   lcd.setCursor(1, 1);
-   lcd.print("Red Mica en redes");
-   lcd.setCursor(1, 2);
-   lcd.print(" WIFI del celular");
-   lcd.setCursor(1, 3);
-   lcd.print("  ya disponible");
-   delay(8000);
-    
-   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP MODO ESTACION Y MODO AP
-                        //BUSCAR ALGUNA RED CONFIGURADA DESDE EL PROGRAMA SINO, LUEGO BUSCA OTRA RED            
-   WiFiManager wm; //WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
-    // reset settings - wipe stored credentials for testing, these are stored by the esp library
-     wm.resetSettings(); //SOLO PARA EJEMPLO permite resetear los parametros siempre q se desconocte la energia
-    /* Automatically connect using saved credentials,
-     if connection fails, it starts an access point with the specified name ( "AutoConnectAP"),
-     if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
-     then goes into a blocking loop awaiting configuration and will return success result */
-    
-    // res = wm.autoConnect(); // auto generated AP name from chipid BUSCAR UNA RED
-    // res = wm.autoConnect("AutoConnectAP"); // anonymous ap RED SIN CLAVE
-    res = wm.autoConnect("MICAv3","12345678"); // password protected ap RED CON CLAVE
- } 
-    if(!res) 
-    {
-      f=0;
-      //Serial.println("Failed to connect wifi");
-      // ESP.restart();
-      pixels.clear();
+    // Si la conexión a la primera red falla, intentar conectar a la segunda red guardada
+    if (!connected && strlen(ssid2) > 0) {
+      WiFi.begin(ssid2, password2);
+      unsigned long startTime = millis();
+      while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
+      {      // 10 segundos de tiempo de espera
+          delay(500);
+      }
+
+      if (WiFi.status() == WL_CONNECTED) {
+         lcd.clear();
+         lcd.setCursor(2, 1);
+         lcd.print(" Red encontrada");
+         delay(2000); 
+         connected = true;
+      }
+    }   
+
+    // Si no logramos conectarnos a las redes guardadas, entramos al portal BLE
+    if (!connected) 
+    {  
+      lcd.clear();
+      lcd.setCursor(1, 0);
+      lcd.print("------------------");
+      lcd.setCursor(1, 1);
+      lcd.print(" MODO CONFIG BLE ");
+      lcd.setCursor(1, 2);
+      lcd.print(" Conecte desde App");
+      lcd.setCursor(1, 3);
+      lcd.print("------------------");
+      delay(3000);
+
+      // Iniciar el servidor BLE para configuración
+      inicializarBLE();
+      pixels.fill(pixels.Color(0, 0, 255)); // Azul para BLE listo
       pixels.show();
-      for(int i=0; i<NUMPIXELS; i++)  // Para cada pixel...  
-        {            
-          pixels.setPixelColor(i, pixels.Color(255, 0, 0)); //Modificamos el LED #i (255,0,0)=rojo
-          pixels.show();   // Mandamos todos los colores con la actualización hecha
-          delay(DELAYVAL); // Pausa antes de modificar el color del siguiente LED
+
+      bool wifiConfigured = false;
+      while (!wifiConfigured) 
+      {
+        // Esperamos a recibir las credenciales vía BLE
+        wifiCredentialsReceived = false;
+        while (!wifiCredentialsReceived) 
+        {
+          delay(100);
+          enviarDatosBLE(); // Manejar la publicidad/conexión BLE de fondo
         }
-    } 
+
+        // Intento de conexión con los datos recibidos
+        lcd.clear();
+        lcd.setCursor(1, 1);
+        lcd.print("Conectando a:");
+        lcd.setCursor(1, 2);
+        lcd.print(receivedSSID.substring(0, 18));
+        
+        WiFi.disconnect();
+        WiFi.begin(receivedSSID.c_str(), receivedPASS.c_str());
+
+        unsigned long connStart = millis();
+        bool connTimeout = false;
+        while (WiFi.status() != WL_CONNECTED && !connTimeout) 
+        {
+          delay(500);
+          enviarDatosBLE();
+          if (millis() - connStart > 15000) { // 15 segundos timeout
+            connTimeout = true;
+          }
+        }
+
+        if (WiFi.status() == WL_CONNECTED) 
+        {
+          // Conexión exitosa!
+          f = 1;
+          connected = true;
+          wifiConfigured = true;
+
+          // LED en VERDE
+          pixels.fill(pixels.Color(0, 255, 0));
+          pixels.show();
+
+          lcd.clear();
+          lcd.setCursor(1, 1);
+          lcd.print("WiFi Conectado!");
+          lcd.setCursor(1, 2);
+          lcd.print("Guardando red...");
+          delay(2000);
+
+          // Rotar las redes guardadas en EEPROM
+          strcpy(ssid2, ssid1);
+          strcpy(password2, password1);
+          strcpy(ssid1, receivedSSID.c_str());
+          strcpy(password1, receivedPASS.c_str());
+
+          EEPROM.put(0, ssid1);
+          EEPROM.put(32, password1);
+          EEPROM.put(64, ssid2);
+          EEPROM.put(96, password2);
+          EEPROM.commit();
+        } 
+        else 
+        {
+          // Error en la conexión
+          f = 0;
+          connected = false;
+          
+          // LED en ROJO
+          pixels.fill(pixels.Color(255, 0, 0));
+          pixels.show();
+
+          lcd.clear();
+          lcd.setCursor(1, 1);
+          lcd.print("¡Error de WiFi!");
+          lcd.setCursor(1, 2);
+          lcd.print("Reintente en App");
+          delay(3000);
+
+          // Volver a azul para indicar que seguimos esperando configuración
+          pixels.fill(pixels.Color(0, 0, 255));
+          pixels.show();
+
+          lcd.clear();
+          lcd.setCursor(1, 0);
+          lcd.print("------------------");
+          lcd.setCursor(1, 1);
+          lcd.print(" MODO CONFIG BLE ");
+          lcd.setCursor(1, 2);
+          lcd.print(" Conecte desde App");
+          lcd.setCursor(1, 3);
+          lcd.print("------------------");
+        }
+      }
+    }
     else 
     {          
-      //Serial.println("connected...yeey :)");  //if you get here you have connected to the WiFi  
-      f=1; 
-      // Obtener los nuevos credenciales
-      
-      
-
-      
-      strcpy(ssid1, WiFi.SSID().c_str());
-      strcpy(password1, WiFi.psk().c_str());
-
-      // Mover la red 1 a la red 2
-      strcpy(ssid2, ssid1);
-      strcpy(password2, password1);
-
-      // Guardar los nuevos credenciales en la red 1
-      strcpy(ssid1, WiFi.SSID().c_str());
-      strcpy(password1, WiFi.psk().c_str());
-
-      // Guardar los credenciales en la EEPROM
-      EEPROM.put(0, ssid1);
-      EEPROM.put(32, password1);
-      EEPROM.put(64, ssid2);
-      EEPROM.put(96, password2);
-      EEPROM.commit();     
+      // Si ya conectó al inicio con las guardadas, igual iniciamos BLE para el monitoreo continuo
+      inicializarBLE();
+      f = 1; 
     }
-    //Si no logra conectarse, no entra al loop. Si no encuentra una red configurada, se pone en en modo AP. Crea una red y se hace por cel
-    //init and get the time
-    //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-    //printLocalTime();
   }
   else
   {
-       f=0;
-       adq=2;
-      // Serial.println("No conectado a wifi");
-   }  
+    f=0;
+    adq=2;
+    // Iniciamos BLE de todas formas para monitoreo local sin Wi-Fi
+    inicializarBLE();
+  }  
 
 
   //----------------------------------------------------------------------------------------------------------------
@@ -788,7 +831,9 @@ void loop()
    //GUARDAR_SD();
 
    MOSTRAR_EN_PANTALLA();
-
+   
+   // Actualizar telemetría BLE y conexión
+   enviarDatosBLE();
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------------------------FIN LOOP

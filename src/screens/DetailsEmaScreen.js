@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
-export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
-  const [opMode, setOpMode] = useState('ESTACIÓN'); // Estado para alternar el modo de operación
+export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onBack, onConfigWifi }) {
+  const opMode = telemetry?.mode === 1 ? 'EXPERIMENTO' : 'ESTACIÓN';
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }}>
@@ -70,7 +70,9 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
               <Text style={{ color: '#10b981', fontSize: 13, marginRight: 4 }}>🔋</Text>
-              <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '700' }}>85% Batería</Text>
+              <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '700' }}>
+                {telemetry?.battery !== null ? `${telemetry.battery}% Batería` : '---% Batería'}
+              </Text>
             </View>
           </View>
         </View>
@@ -85,7 +87,7 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
         
         {/* MODO ESTACIÓN */}
         <TouchableOpacity 
-          onPress={() => setOpMode('ESTACIÓN')}
+          onPress={() => onChangeMode && onChangeMode('0')}
           style={{
             flex: 1,
             aspectRatio: 1,
@@ -126,7 +128,7 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
 
         {/* MODO EXPERIMENTO */}
         <TouchableOpacity 
-          onPress={() => setOpMode('EXPERIMENTO')}
+          onPress={() => onChangeMode && onChangeMode('1')}
           style={{
             flex: 1,
             aspectRatio: 1,
@@ -187,19 +189,21 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             width: 48,
             height: 48,
             borderRadius: 16,
-            backgroundColor: '#e6f4ea',
+            backgroundColor: telemetry?.wifi ? '#e6f4ea' : '#fbe9e7',
             justifyContent: 'center',
             alignItems: 'center',
             marginRight: 16
           }}>
-            <Text style={{ fontSize: 22, color: '#137333' }}>📶</Text>
+            <Text style={{ fontSize: 22, color: telemetry?.wifi ? '#137333' : '#c53929' }}>
+              {telemetry?.wifi ? '📶' : '📴'}
+            </Text>
           </View>
           <View>
             <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
               Red Wi-Fi
             </Text>
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#0f172a', marginTop: 2 }}>
-              Red_Educativa_01
+              {telemetry?.ssid || 'Desconectado'}
             </Text>
           </View>
         </View>
