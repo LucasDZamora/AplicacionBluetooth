@@ -35,7 +35,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermissionDescription": "Permiso para conectar y monitorear tu MICA por BLE"
+        }
+      ]
     ]
   }
 }

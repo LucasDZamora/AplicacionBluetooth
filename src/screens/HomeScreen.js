@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Dimensions, Alert } from 'react-native';
-import RNBluetoothClassic from 'react-native-bluetooth-classic';
+import { manager, SERVICE_UUID, scanForDevices, stopScanning } from '../services/bluetoothService';
 import { requestBluetoothPermissions } from '../services/permissions'; // Importamos tu servicio de permisos
 
 const { width } = Dimensions.get('window');
@@ -12,6 +12,9 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
   // 1. Solicitar permisos al montar el Home por primera vez
   useEffect(() => {
     checkAndRequestPermissions();
+    return () => {
+      stopScanning(); // Limpieza al desmontar
+    };
   }, []);
 
   // 2. Recargar los dispositivos cuando cambie el trigger o cuando se otorguen los permisos
@@ -39,39 +42,52 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
 
   const fetchBluetoothDevices = async () => {
     try {
-      // Obtener los que tienen canal RFCOMM activo
-      const connected = await RNBluetoothClassic.getConnectedDevices();
-      
-      // Obtener los emparejados en el sistema Android
-      const bonded = await RNBluetoothClassic.getBondedDevices();
-      
-      // Combinar listas
-      const allDevices = [...connected, ...bonded];
-      
-      // Limpiar duplicados por MAC address
-      const uniqueDevices = Array.from(new Set(allDevices.map(d => d.address)))
-        .map(address => allDevices.find(d => d.address === address));
-
-      // Filtro estricto para mostrar solo los que contienen "MICA"
-      const micaDevices = uniqueDevices.filter(device => {
-        const name = device.name || '';
-        return name.toLowerCase().includes('mica');
-      });
-
-      // Mapear al diseño de la interfaz
-      const mapped = micaDevices.map(device => {
+      console.log("Home: Obteniendo dispositivos BLE conectados...");
+      // 1. Dispositivos ya conectados por nuestra app
+      const connected = await manager.connectedDevices([SERVICE_UUID]);
+      const mappedConnected = connected.map(device => {
         const name = device.name || 'Estación MICA';
         return {
-          id: device.address,
+          id: device.id,
           name: name,
-          type: 'Estación Bluetooth',
+          type: 'MICA (Conectada)',
           initial: name.charAt(0).toUpperCase(),
           battery: null,
           rawDevice: device
         };
       });
 
-      setDevices(mapped);
+      setDevices(mappedConnected);
+
+      // 2. Escanear por 3 segundos para descubrir otros MICA cercanos activos
+      scanForDevices(
+        (device) => {
+          setDevices(prev => {
+            if (prev.some(d => d.id === device.id)) return prev;
+            const name = device.name || 'Estación MICA';
+            return [
+              ...prev,
+              {
+                id: device.id,
+                name: name,
+                type: 'MICA (BLE)',
+                initial: name.charAt(0).toUpperCase(),
+                battery: null,
+                rawDevice: device
+              }
+            ];
+          });
+        },
+        (error) => {
+          console.log("Home: Error no crítico escaneando:", error.message);
+        }
+      );
+
+      // Detener escaneo tras 3 segundos
+      setTimeout(() => {
+        stopScanning();
+      }, 3000);
+
     } catch (e) {
       console.error("Error cargando dispositivos en Home:", e);
     }
