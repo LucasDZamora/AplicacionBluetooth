@@ -21,6 +21,8 @@ extern int muestreo;
 extern int estado;
 extern bool enMediciones;
 extern void actualizarLedModo();
+extern int paginaActual;
+extern unsigned long tiempoInicio;
 
 // UUIDs del servicio y características BLE
 #define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -124,15 +126,21 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
           estado = g;
           Serial.println("BLE: Cambio de modo a " + String(g == 0 ? "ESTACION" : "EXPERIMENTO"));
           
+          // Mostrar confirmación visual inmediata en la pantalla LCD
+          lcd.backlight(); // Asegurar backlight encendido
+          lcd.clear();
+          lcd.setCursor(1, 1);
+          lcd.print(" Modo cambiado: ");
+          lcd.setCursor(1, 2);
+          lcd.print(g == 0 ? "ESTACION" : "EXPERIMENTO");
+          delay(1500);
+          
+          actualizarLedModo();
+          
           if (enMediciones) {
-            actualizarLedModo();
-          } else {
-            lcd.clear();
-            lcd.setCursor(1, 1);
-            lcd.print("Modo cambiado:");
-            lcd.setCursor(1, 2);
-            lcd.print(g == 0 ? "ESTACION" : "EXPERIMENTO");
-            delay(1500);
+            // Forzar a volver a la página 1 para mostrar el cambio de modo de inmediato
+            paginaActual = 1;
+            tiempoInicio = millis();
           }
         }
         else if (rxStr.indexOf('|') > 0 || rxStr.indexOf(',') > 0) {
@@ -196,20 +204,27 @@ void inicializarBLE() {
 }
 
 void enviarDatosBLE() {
+  static unsigned long ultimoEnvioBLE = 0;
+  unsigned long ahora = millis();
+
   if (bleDeviceConnected && pDataChar != NULL) {
-    // Construir JSON de telemetria
-    String wifiSSID = (WiFi.status() == WL_CONNECTED) ? WiFi.SSID() : "Desconectado";
-    int wifiStatus = (WiFi.status() == WL_CONNECTED) ? 1 : 0;
-    
-    String jsonPayload = "{\"battery\":" + String(percentage) + 
-                         ",\"mode\":" + String(g) + 
-                         ",\"wifi\":" + String(wifiStatus) + 
-                         ",\"ssid\":\"" + wifiSSID + "\"}";
-                         
-    pDataChar->setValue(jsonPayload.c_str());
-    pDataChar->notify();
-    Serial.print("BLE: Enviando telemetria -> ");
-    Serial.println(jsonPayload);
+    if (ahora - ultimoEnvioBLE >= 2000) {
+      ultimoEnvioBLE = ahora;
+      
+      // Construir JSON de telemetria
+      String wifiSSID = (WiFi.status() == WL_CONNECTED) ? WiFi.SSID() : "Desconectado";
+      int wifiStatus = (WiFi.status() == WL_CONNECTED) ? 1 : 0;
+      
+      String jsonPayload = "{\"battery\":" + String(percentage) + 
+                           ",\"mode\":" + String(g) + 
+                           ",\"wifi\":" + String(wifiStatus) + 
+                           ",\"ssid\":\"" + wifiSSID + "\"}";
+                           
+      pDataChar->setValue(jsonPayload.c_str());
+      pDataChar->notify();
+      Serial.print("BLE: Enviando telemetria -> ");
+      Serial.println(jsonPayload);
+    }
   }
 
   // Si se desconecta, reiniciar publicidad
