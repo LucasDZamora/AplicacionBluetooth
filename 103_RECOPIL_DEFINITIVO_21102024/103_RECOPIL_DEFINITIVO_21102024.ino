@@ -234,6 +234,7 @@ boolean conwifi = false;
 bool connected = false;
 bool res;
 bool marca_tiempo;
+bool enMediciones = false;
 //--------------------------------------------MICS5524 ----NO USADO
 #include "DFRobot_MICS.h"
 #define CALIBRATION_TIME   3                      // Default calibration time is three minutes
@@ -294,6 +295,24 @@ int Year;
 const char* ntpServer = "south-america.pool.ntp.org";
 const long  gmtOffset_sec = -3*60*60; //UTC-4 zona horaria actual 1/oct/2023 chile -4*60*60
 const int   daylightOffset_sec = 3600; //3600 si es horario de verano, sino 0 (cero)
+
+void actualizarLedModo() {
+  pixels.clear();
+  if (adq == 1) { // MODO ONLINE (WIFI)
+    if (g == 0) { // ESTACION
+      pixels.fill(pixels.Color(0, 255, 0)); // Verde
+    } else { // EXPERIMENTO
+      pixels.fill(pixels.Color(255, 255, 0)); // Amarillo
+    }
+  } else { // MODO OFFLINE
+    if (g == 0) { // ESTACION
+      pixels.fill(pixels.Color(255, 0, 0)); // Rojo
+    } else { // EXPERIMENTO
+      pixels.fill(pixels.Color(255, 0, 255)); // Violeta
+    }
+  }
+  pixels.show();
+}
 
 void printLocalTime(){
   struct tm timeinfo;
@@ -396,13 +415,37 @@ void setup()
   if (valorPulsador == 1) 
   {
     adq=1; //----------------------------------variable para saber si el dispositivo se conectó a wifi
+    
+    // Iniciar el servidor BLE para configuración primero
+    inicializarBLE();
+    
+    // Feedback visual LED: AZUL para BLE listo (esperando App)
+    pixels.fill(pixels.Color(0, 0, 255));
+    pixels.show();
+
     lcd.clear();
-    lcd.setCursor(2, 1);
-    lcd.print("Modo BLEconfig");
-    delay(2000); 
+    lcd.setCursor(1, 0);
+    lcd.print("------------------");
+    lcd.setCursor(1, 1);
+    lcd.print(" MODO CONFIG BLE ");
+    lcd.setCursor(1, 2);
+    lcd.print(" Conecte desde App");
+    lcd.setCursor(1, 3);
+    lcd.print("------------------");
+    
+    // Esperamos a que la App se conecte vía BLE
+    while (!bleDeviceConnected) 
+    {
+      delay(100);
+      enviarDatosBLE(); // Atender publicidad BLE
+    }
+    
+    // Una vez conectado BLE, intentamos conectar a las redes guardadas
     lcd.clear();
-    lcd.setCursor(2, 1);
-    lcd.print("  Buscando red");
+    lcd.setCursor(1, 1);
+    lcd.print(" BLE Conectado! ");
+    lcd.setCursor(1, 2);
+    lcd.print(" Buscando red...");
     delay(2000); 
     
     // Inicialización de la memoria EEPROM
@@ -424,6 +467,7 @@ void setup()
       while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
       { // 10 segundos de tiempo de espera
           delay(500);
+          enviarDatosBLE(); // Seguir procesando telemetría BLE
       }
 
       if (WiFi.status() == WL_CONNECTED) 
@@ -443,6 +487,7 @@ void setup()
       while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
       {      // 10 segundos de tiempo de espera
           delay(500);
+          enviarDatosBLE(); // Seguir procesando telemetría BLE
       }
 
       if (WiFi.status() == WL_CONNECTED) {
@@ -454,24 +499,22 @@ void setup()
       }
     }   
 
-    // Si no logramos conectarnos a las redes guardadas, entramos al portal BLE
+    // Si no logramos conectarnos a las redes guardadas, entramos al portal BLE para recibir credenciales
     if (!connected) 
     {  
+      // Volver a azul para indicar que seguimos esperando configuración Wi-Fi en App
+      pixels.fill(pixels.Color(0, 0, 255));
+      pixels.show();
+
       lcd.clear();
       lcd.setCursor(1, 0);
       lcd.print("------------------");
       lcd.setCursor(1, 1);
       lcd.print(" MODO CONFIG BLE ");
       lcd.setCursor(1, 2);
-      lcd.print(" Conecte desde App");
+      lcd.print(" Envíe WiFi desde");
       lcd.setCursor(1, 3);
-      lcd.print("------------------");
-      delay(3000);
-
-      // Iniciar el servidor BLE para configuración
-      inicializarBLE();
-      pixels.fill(pixels.Color(0, 0, 255)); // Azul para BLE listo
-      pixels.show();
+      lcd.print(" la aplicación  ");
 
       bool wifiConfigured = false;
       while (!wifiConfigured) 
@@ -523,6 +566,8 @@ void setup()
           lcd.print("Guardando red...");
           delay(2000);
 
+          // COMENTADO POR SOLICITUD DEL USUARIO PARA PRUEBAS SIN SOBREESCRITURA
+          /*
           // Rotar las redes guardadas en EEPROM
           strcpy(ssid2, ssid1);
           strcpy(password2, password1);
@@ -534,6 +579,7 @@ void setup()
           EEPROM.put(64, ssid2);
           EEPROM.put(96, password2);
           EEPROM.commit();
+          */
         } 
         else 
         {
@@ -562,17 +608,24 @@ void setup()
           lcd.setCursor(1, 1);
           lcd.print(" MODO CONFIG BLE ");
           lcd.setCursor(1, 2);
-          lcd.print(" Conecte desde App");
+          lcd.print(" Envíe WiFi desde");
           lcd.setCursor(1, 3);
-          lcd.print("------------------");
+          lcd.print(" la aplicación  ");
         }
       }
     }
     else 
     {          
-      // Si ya conectó al inicio con las guardadas, igual iniciamos BLE para el monitoreo continuo
-      inicializarBLE();
+      // Si ya conectó con las guardadas, la conexión BLE ya está activa
       f = 1; 
+
+      // Mostrar WiFi Conectado
+      pixels.fill(pixels.Color(0, 255, 0));
+      pixels.show();
+      lcd.clear();
+      lcd.setCursor(1, 1);
+      lcd.print("WiFi Conectado!");
+      delay(2000);
     }
   }
   else
@@ -779,7 +832,7 @@ void setup()
     y=1;
   }  
  alertaSD();
- 
+ enMediciones = true;
   
 }
 //----------------------------------------------------------------------------------------------------------- subrutina ML8511

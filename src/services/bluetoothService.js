@@ -93,6 +93,16 @@ export const connectToDevice = async (device) => {
   try {
     const connectedDevice = await manager.connectToDevice(deviceId);
     console.log(`BLE: ¡Conectado exitosamente a ${connectedDevice.name || connectedDevice.id}!`);
+    
+    // Solicitar MTU de 512 bytes para evitar el truncamiento del JSON de telemetría en Android
+    try {
+      console.log("BLE: Solicitando MTU de 512 bytes...");
+      await connectedDevice.requestMTU(512);
+      console.log("BLE: MTU negociado correctamente.");
+    } catch (mtuErr) {
+      console.warn("BLE: No se pudo negociar MTU (normal en iOS/algunos dispositivos):", mtuErr.message);
+    }
+
     console.log("BLE: Descubriendo servicios y características...");
     const discoveredDevice = await connectedDevice.discoverAllServicesAndCharacteristics();
     console.log("BLE: Servicios y características descubiertos con éxito.");

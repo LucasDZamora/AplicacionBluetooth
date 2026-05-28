@@ -19,6 +19,8 @@ extern char ssid2[32];
 extern char password2[32];
 extern int muestreo;
 extern int estado;
+extern bool enMediciones;
+extern void actualizarLedModo();
 
 // UUIDs del servicio y características BLE
 #define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -40,29 +42,37 @@ class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       bleDeviceConnected = true;
       Serial.println("BLE: Cliente conectado.");
-      // Feedback visual LED: AZUL
-      pixels.fill(pixels.Color(0, 0, 255));
-      pixels.show();
       
-      lcd.clear();
-      lcd.setCursor(1, 1);
-      lcd.print(" BLE Conectado! ");
-      lcd.setCursor(1, 2);
-      lcd.print(" Esperando wifi...");
+      // Solo alteramos LED y LCD si no estamos en fase de mediciones/bucle principal
+      if (!enMediciones) {
+        // Feedback visual LED: AZUL
+        pixels.fill(pixels.Color(0, 0, 255));
+        pixels.show();
+        
+        lcd.clear();
+        lcd.setCursor(1, 1);
+        lcd.print(" BLE Conectado! ");
+        lcd.setCursor(1, 2);
+        lcd.print(" Esperando wifi...");
+      }
     };
 
     void onDisconnect(BLEServer* pServer) {
       bleDeviceConnected = false;
       Serial.println("BLE: Cliente desconectado.");
-      // Feedback visual LED: ROJO (o apagar/restaurar)
-      pixels.fill(pixels.Color(255, 0, 0));
-      pixels.show();
       
-      lcd.clear();
-      lcd.setCursor(1, 1);
-      lcd.print("BLE Desconectado");
-      lcd.setCursor(1, 2);
-      lcd.print("Publicitando... ");
+      // Solo alteramos LED y LCD si no estamos en fase de mediciones/bucle principal
+      if (!enMediciones) {
+        // Feedback visual LED: ROJO (o apagar/restaurar)
+        pixels.fill(pixels.Color(255, 0, 0));
+        pixels.show();
+        
+        lcd.clear();
+        lcd.setCursor(1, 1);
+        lcd.print("BLE Desconectado");
+        lcd.setCursor(1, 2);
+        lcd.print("Publicitando... ");
+      }
     }
 };
 
@@ -87,15 +97,18 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
             wifiCredentialsReceived = true;
             Serial.println("BLE: Credenciales parseadas (WIFI: SSID=" + receivedSSID + ")");
             
-            // LED: CIAN/CELESTE
-            pixels.fill(pixels.Color(0, 255, 255));
-            pixels.show();
-            
-            lcd.clear();
-            lcd.setCursor(1, 1);
-            lcd.print("Credenciales OK");
-            lcd.setCursor(1, 2);
-            lcd.print("Conectando WiFi...");
+            // Solo alteramos LED y LCD si no estamos en fase de mediciones/bucle principal
+            if (!enMediciones) {
+              // LED: CIAN/CELESTE
+              pixels.fill(pixels.Color(0, 255, 255));
+              pixels.show();
+              
+              lcd.clear();
+              lcd.setCursor(1, 1);
+              lcd.print("Credenciales OK");
+              lcd.setCursor(1, 2);
+              lcd.print("Conectando WiFi...");
+            }
           }
         } 
         else if (rxStr.startsWith("MODE:")) {
@@ -111,12 +124,16 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
           estado = g;
           Serial.println("BLE: Cambio de modo a " + String(g == 0 ? "ESTACION" : "EXPERIMENTO"));
           
-          lcd.clear();
-          lcd.setCursor(1, 1);
-          lcd.print("Modo cambiado:");
-          lcd.setCursor(1, 2);
-          lcd.print(g == 0 ? "ESTACION" : "EXPERIMENTO");
-          delay(1500);
+          if (enMediciones) {
+            actualizarLedModo();
+          } else {
+            lcd.clear();
+            lcd.setCursor(1, 1);
+            lcd.print("Modo cambiado:");
+            lcd.setCursor(1, 2);
+            lcd.print(g == 0 ? "ESTACION" : "EXPERIMENTO");
+            delay(1500);
+          }
         }
         else if (rxStr.indexOf('|') > 0 || rxStr.indexOf(',') > 0) {
           // Formato simple retrocompatible: ssid|password o ssid,password
@@ -129,15 +146,18 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
           wifiCredentialsReceived = true;
           Serial.println("BLE: Credenciales parseadas (SSID=" + receivedSSID + ")");
           
-          // LED: CIAN/CELESTE
-          pixels.fill(pixels.Color(0, 255, 255));
-          pixels.show();
-          
-          lcd.clear();
-          lcd.setCursor(1, 1);
-          lcd.print("Credenciales OK");
-          lcd.setCursor(1, 2);
-          lcd.print("Conectando WiFi...");
+          // Solo alteramos LED y LCD si no estamos en fase de mediciones/bucle principal
+          if (!enMediciones) {
+            // LED: CIAN/CELESTE
+            pixels.fill(pixels.Color(0, 255, 255));
+            pixels.show();
+            
+            lcd.clear();
+            lcd.setCursor(1, 1);
+            lcd.print("Credenciales OK");
+            lcd.setCursor(1, 2);
+            lcd.print("Conectando WiFi...");
+          }
         }
       }
     }

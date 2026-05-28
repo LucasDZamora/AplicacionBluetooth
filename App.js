@@ -119,6 +119,16 @@ export default function App() {
         activeDevice = await connectToDevice(rawDeviceInstance);
       } else {
         console.log("App.js: Dispositivo ya conectado. Asegurando servicios y características...");
+        
+        // Solicitar preventivamente MTU de 512 bytes por si acaso
+        try {
+          console.log("App.js: Solicitando MTU de 512 bytes preventivo...");
+          await rawDeviceInstance.requestMTU(512);
+          console.log("App.js: MTU negociado correctamente.");
+        } catch (mtuErr) {
+          console.warn("App.js: No se pudo negociar MTU (normal en iOS/algunos dispositivos):", mtuErr.message);
+        }
+
         await rawDeviceInstance.discoverAllServicesAndCharacteristics();
       }
       
