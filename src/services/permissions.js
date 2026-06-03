@@ -9,7 +9,7 @@ export const requestBluetoothPermissions = async () => {
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         ]);
-        
+
         return (
           granted['android.permission.BLUETOOTH_CONNECT'] === PermissionsAndroid.RESULTS.GRANTED &&
           granted['android.permission.BLUETOOTH_SCAN'] === PermissionsAndroid.RESULTS.GRANTED &&
@@ -28,3 +28,4 @@ export const requestBluetoothPermissions = async () => {
   }
   return true;
 };
+

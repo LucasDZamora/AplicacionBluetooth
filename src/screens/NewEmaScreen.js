@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, FlatList, Alert, ActivityIndicator } from 'react-native';
-import RNBluetoothClassic from 'react-native-bluetooth-classic';
-import { scanForDevices, connectToDevice } from '../services/bluetoothService';
+import { View, Text, TouchableOpacity, Animated, FlatList, Alert, ActivityIndicator, Platform } from 'react-native';
+import { isBleAvailable, scanForDevices, stopScanning, connectToDevice, MICA_SERVICE_UUID } from '../services/bluetoothService';
 
 export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
   const [scanState, setScanState] = useState('idle'); // 'idle', 'scanning', 'results'
@@ -9,9 +8,15 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
   const [connectingId, setConnectingId] = useState(null);
   const fadeAnim = useRef(new Animated.Value(0.3)).current;
 
+  // Cleanup de escaneo al desmontar la pantalla
+  useEffect(() => {
+    return () => {
+      stopScanning();
+    };
+  }, []);
+
   useEffect(() => {
     if (scanState === 'scanning') {
-      // Animación intermitente/bucle mientras se escanea
       Animated.loop(
         Animated.sequence([
           Animated.timing(fadeAnim, { toValue: 0.8, duration: 1000, useNativeDriver: true }),
@@ -27,18 +32,55 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
 
   const executeDeviceDiscovery = async () => {
     try {
-      // 1. Descubrir dispositivos Bluetooth en el entorno
-      const discovered = await scanForDevices();
-      
-      // 2. Obtener los dispositivos que ya están vinculados/emparejados en el teléfono
-      const bonded = await RNBluetoothClassic.getBondedDevices();
-      const bondedAddresses = bonded.map(d => d.address);
+      // ⚠️ CONTROL DE SEGURIDAD PARA EL SIMULADOR/EXPO GO
+      if (!isBleAvailable()) {
+        console.log("ℹ️ BleManager no está disponible en este entorno. (Expo Go / Simulador)");
+        Alert.alert(
+          'Módulo de Bluetooth no disponible',
+          'La app no pudo inicializar el Bluetooth nativo. Si estás usando Expo Go o el simulador, recuerda que debes compilar la app con una compilación de desarrollo (Development Build) en un dispositivo físico.'
+        );
+        setScanState('idle');
+        return;
+      }
 
-      // 3. Filtrar para dejar ÚNICAMENTE los dispositivos que NO están vinculados
-      const nonBondedDevices = discovered.filter(device => !bondedAddresses.includes(device.address));
+      setDevices([]);
 
-      setDevices(nonBondedDevices);
-      setScanState('results');
+      // Iniciar escaneo asíncrono
+      scanForDevices(
+        (device) => {
+          const name = device.name || device.localName || '';
+          const serviceUUIDs = device.serviceUUIDs || [];
+          const hasMicaService = serviceUUIDs.includes(MICA_SERVICE_UUID);
+          const isMicaName = name.toLowerCase().includes('mica') || name.toLowerCase().includes('ema');
+
+          if (isMicaName || hasMicaService) {
+            const mapped = {
+              id: device.id,
+              address: device.id, // Para compatibilidad con keyExtractor
+              name: name || 'Estación MICA',
+              rawDevice: device
+            };
+
+            setDevices((prevDevices) => {
+              if (prevDevices.some((d) => d.id === device.id)) {
+                return prevDevices;
+              }
+              return [...prevDevices, mapped];
+            });
+          }
+        },
+        (error) => {
+          Alert.alert('Error', 'Hubo un problema al buscar dispositivos Bluetooth.');
+          setScanState('idle');
+        }
+      );
+
+      // Detener el escaneo automáticamente tras 8 segundos y mostrar resultados
+      setTimeout(() => {
+        stopScanning();
+        setScanState('results');
+      }, 8000);
+
     } catch (error) {
       console.error("Error al escanear dispositivos:", error);
       Alert.alert('Error', 'Hubo un problema al buscar dispositivos Bluetooth.');
@@ -49,19 +91,18 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
   const handleConnect = async (rawDevice) => {
     try {
       setConnectingId(rawDevice.address);
-      const success = await connectToDevice(rawDevice);
+
+      // Código de conexión real en iPhone
+      const success = await connectToDevice(rawDevice.rawDevice);
       if (success) {
-        // Mapeamos el dispositivo al formato de la interfaz visual
         const name = rawDevice.name || 'Estación MICA';
         const mappedDevice = {
           id: rawDevice.address,
           name: name,
-          type: 'Estación Bluetooth',
+          type: 'Estación BLE',
           initial: name.charAt(0).toUpperCase(),
-          rawDevice: rawDevice
+          rawDevice: success
         };
-
-        // Redirige automáticamente a la pantalla de configuración de Wi-Fi
         onConnectionSuccess(mappedDevice);
       }
     } catch (err) {
@@ -81,10 +122,10 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }}>
-      
+
       {/* HEADER */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 40 }}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleBack}
           style={{
             width: 44,
@@ -121,7 +162,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
           </View>
 
           <View style={{ paddingBottom: 40 }}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setScanState('scanning')}
               style={{ backgroundColor: '#3b82f6', borderRadius: 20, paddingVertical: 18, alignItems: 'center' }}
             >
@@ -155,7 +196,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             </Text>
           }
           renderItem={({ item }) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => handleConnect(item)}
               disabled={connectingId !== null}
               style={{
@@ -198,7 +239,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             </Text>
           }
           ListFooterComponent={
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setScanState('scanning')}
               style={{ backgroundColor: '#f1f5f9', borderRadius: 20, paddingVertical: 18, alignItems: 'center', marginTop: 10 }}
             >

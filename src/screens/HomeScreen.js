@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Dimensions, Alert } from 'react-native';
-import RNBluetoothClassic from 'react-native-bluetooth-classic';
+import { isBleAvailable, manager, MICA_SERVICE_UUID } from '../services/bluetoothService';
 import { requestBluetoothPermissions } from '../services/permissions'; // Importamos tu servicio de permisos
 
 const { width } = Dimensions.get('window');
@@ -8,6 +8,7 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelectDevice }) {
   const [devices, setDevices] = useState([]);
   const [hasPermissions, setHasPermissions] = useState(false);
+  const [bluetoothUnavailable, setBluetoothUnavailable] = useState(false);
 
   // 1. Solicitar permisos al montar el Home por primera vez
   useEffect(() => {
@@ -39,32 +40,26 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
 
   const fetchBluetoothDevices = async () => {
     try {
-      // Obtener los que tienen canal RFCOMM activo
-      const connected = await RNBluetoothClassic.getConnectedDevices();
-      
-      // Obtener los emparejados en el sistema Android
-      const bonded = await RNBluetoothClassic.getBondedDevices();
-      
-      // Combinar listas
-      const allDevices = [...connected, ...bonded];
-      
-      // Limpiar duplicados por MAC address
-      const uniqueDevices = Array.from(new Set(allDevices.map(d => d.address)))
-        .map(address => allDevices.find(d => d.address === address));
+      // Control de seguridad si el módulo nativo no está disponible (ej. Expo Go o Simulador)
+      if (!isBleAvailable()) {
+        console.log("ℹ️ BleManager no está disponible en este entorno. (Expo Go / Simulador)");
+        setBluetoothUnavailable(true);
+        setDevices([]);
+        return;
+      }
 
-      // Filtro estricto para mostrar solo los que contienen "MICA"
-      const micaDevices = uniqueDevices.filter(device => {
-        const name = device.name || '';
-        return name.toLowerCase().includes('mica');
-      });
+      setBluetoothUnavailable(false);
 
+      // Obtener los dispositivos BLE actualmente conectados que ofrezcan el servicio de MICA
+      const connected = await manager.connectedDevices([MICA_SERVICE_UUID]);
+      
       // Mapear al diseño de la interfaz
-      const mapped = micaDevices.map(device => {
+      const mapped = connected.map(device => {
         const name = device.name || 'Estación MICA';
         return {
-          id: device.address,
+          id: device.id,
           name: name,
-          type: 'Estación Bluetooth',
+          type: 'Estación BLE',
           initial: name.charAt(0).toUpperCase(),
           battery: null,
           rawDevice: device
@@ -73,7 +68,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
 
       setDevices(mapped);
     } catch (e) {
-      console.error("Error cargando dispositivos en Home:", e);
+      console.warn("Error cargando dispositivos en Home:", e);
     }
   };
 
@@ -191,9 +186,15 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 30, fontSize: 14, paddingHorizontal: 16, lineHeight: 20 }}>
-            No hay estaciones MICA vinculadas en el teléfono. Presiona "+" para buscar y conectar tu EMA por primera vez.
-          </Text>
+          bluetoothUnavailable ? (
+            <Text style={{ textAlign: 'center', color: '#e11d48', marginTop: 30, fontSize: 14, paddingHorizontal: 16, lineHeight: 22, fontWeight: '600' }}>
+              ⚠️ El módulo Bluetooth nativo no está disponible. Asegúrate de ejecutar un Development Build en un dispositivo físico.
+            </Text>
+          ) : (
+            <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 30, fontSize: 14, paddingHorizontal: 16, lineHeight: 20 }}>
+              No hay estaciones MICA vinculadas en el teléfono. Presiona "+" para buscar y conectar tu EMA por primera vez.
+            </Text>
+          )
         }
         ListFooterComponent={
           <TouchableOpacity 

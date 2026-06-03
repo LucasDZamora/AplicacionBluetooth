@@ -13,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mica.bluetooth",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceder al Bluetooth para escanear y conectarse a tus estaciones MICA.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicación requiere permisos de Bluetooth para comunicarse con periféricos cercanos."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,6 +38,19 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "Esta aplicación necesita acceder al Bluetooth para escanear y conectarse a tus estaciones MICA."
+        }
+      ]
+    ]
   }
 }
