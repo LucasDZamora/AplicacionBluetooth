@@ -32,11 +32,11 @@ extern unsigned long tiempoInicio;
 BLEServer* pServer = NULL;
 BLECharacteristic* pCmdChar = NULL;
 BLECharacteristic* pDataChar = NULL;
-bool bleDeviceConnected = false;
+volatile bool bleDeviceConnected = false;
 bool bleOldDeviceConnected = false;
 
 // Flags de configuración para Wi-Fi
-bool wifiCredentialsReceived = false;
+volatile bool wifiCredentialsReceived = false;
 String receivedSSID = "";
 String receivedPASS = "";
 

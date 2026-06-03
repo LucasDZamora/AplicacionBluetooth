@@ -142,10 +142,10 @@ bool isDaylightSavings(int gpsDay, int gpsMonth) {
 // Declaraciones para BLE MICA
 void inicializarBLE();
 void enviarDatosBLE();
-extern bool wifiCredentialsReceived;
+extern volatile bool wifiCredentialsReceived;
 extern String receivedSSID;
 extern String receivedPASS;
-extern bool bleDeviceConnected;
+extern volatile bool bleDeviceConnected;
 
 char ssid1[32] = {0};
 char password1[32] = {0};
