@@ -13,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mica.bluetooth",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceder al Bluetooth para escanear y conectarse a tus estaciones MICA.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicación requiere permisos de Bluetooth para comunicarse con periféricos cercanos."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +40,6 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-status-bar",
       [
         "react-native-ble-plx",
         {
