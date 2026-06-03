@@ -184,6 +184,72 @@ export const changeOperatingMode = async (device, modeCode) => {
 };
 
 /**
+ * Activa o desactiva el Wi-Fi del MICA mediante comando BLE.
+ */
+export const changeWifiState = async (device, enabled) => {
+  if (!device) {
+    throw new Error('No hay ningún dispositivo MICA conectado por BLE.');
+  }
+  
+  const payload = `WIFI:${enabled ? 'ON' : 'OFF'}`;
+  const base64Data = encodeBase64(payload);
+  console.log(`BLE: Enviando cambio de estado WiFi: ${payload}`);
+  
+  try {
+    const isConnected = await device.isConnected();
+    let activeDevice = device;
+    if (!isConnected) {
+      console.log("BLE: Dispositivo desconectado de forma inesperada. Reconectando...");
+      activeDevice = await connectToDevice(device.id);
+    }
+
+    await activeDevice.writeCharacteristicWithResponseForService(
+      SERVICE_UUID,
+      CMD_CHAR_UUID,
+      base64Data
+    );
+    console.log(`BLE: ¡Estado WiFi cambiado exitosamente a ${payload}!`);
+    return true;
+  } catch (err) {
+    console.error("BLE: Error al cambiar estado WiFi por BLE:", err);
+    throw new Error(`Fallo al transmitir cambio de estado WiFi: ${err.message}`);
+  }
+};
+
+/**
+ * Envía el comando de inicio (confirmación de configuración inicial) al MICA.
+ */
+export const sendStartCommand = async (device) => {
+  if (!device) {
+    throw new Error('No hay ningún dispositivo MICA conectado por BLE.');
+  }
+  
+  const payload = 'START';
+  const base64Data = encodeBase64(payload);
+  console.log('BLE: Enviando comando START');
+  
+  try {
+    const isConnected = await device.isConnected();
+    let activeDevice = device;
+    if (!isConnected) {
+      console.log("BLE: Dispositivo desconectado de forma inesperada. Reconectando...");
+      activeDevice = await connectToDevice(device.id);
+    }
+
+    await activeDevice.writeCharacteristicWithResponseForService(
+      SERVICE_UUID,
+      CMD_CHAR_UUID,
+      base64Data
+    );
+    console.log('BLE: ¡Comando START enviado exitosamente!');
+    return true;
+  } catch (err) {
+    console.error("BLE: Error al enviar comando START:", err);
+    throw new Error(`Fallo al transmitir comando de inicio: ${err.message}`);
+  }
+};
+
+/**
  * Se suscribe a la característica de telemetría del MICA para recibir datos en tiempo real.
  */
 export const subscribeToMicaData = (device, onDataReceived, onError) => {

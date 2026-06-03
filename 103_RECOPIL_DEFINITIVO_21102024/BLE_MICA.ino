@@ -18,11 +18,17 @@ extern char password1[32];
 extern char ssid2[32];
 extern char password2[32];
 extern int muestreo;
-extern int estado;
 extern bool enMediciones;
+extern bool configReceived;
 extern void actualizarLedModo();
 extern int paginaActual;
 extern unsigned long tiempoInicio;
+extern unsigned long tiempo_B;
+extern unsigned long tiempo_C;
+extern unsigned long intervalo_B;
+extern unsigned long intervalo_C;
+extern unsigned long PRIMEROS_MINUTOS;
+
 
 // UUIDs del servicio y características BLE
 #define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -87,32 +93,105 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
         Serial.println(rxStr);
 
         if (rxStr.startsWith("WIFI:")) {
-          // Formato WIFI:ssid|password o WIFI:ssid,password
           String creds = rxStr.substring(5);
-          int sepIdx = creds.indexOf('|');
-          if (sepIdx < 0) {
-            sepIdx = creds.indexOf(',');
-          }
-          if (sepIdx > 0) {
-            receivedSSID = creds.substring(0, sepIdx);
-            receivedPASS = creds.substring(sepIdx + 1);
-            wifiCredentialsReceived = true;
-            Serial.println("BLE: Credenciales parseadas (WIFI: SSID=" + receivedSSID + ")");
+          if (creds == "OFF") {
+            adq = 0;
+            connected = false;
+            f = 0;
+            WiFi.disconnect(true);
             
-            // Solo alteramos LED y LCD si no estamos en fase de mediciones/bucle principal
-            if (!enMediciones) {
-              // LED: CIAN/CELESTE
-              pixels.fill(pixels.Color(0, 255, 255));
-              pixels.show();
+            // Actualizar modo de muestreo según el modo g actual
+            muestreo = (g == 0) ? 3 : 4;
+            actualizarLedModo();
+            Serial.println("BLE: WiFi desactivado por comando.");
+            
+            lcd.backlight();
+            lcd.clear();
+            lcd.setCursor(1, 1);
+            lcd.print("WiFi Desactivado");
+            delay(1500);
+            
+            // Forzar inicio de mediciones offline de inmediato
+            if (enMediciones) {
+              unsigned long ahora = millis();
+              if (ahora < PRIMEROS_MINUTOS) {
+                tiempo_B = ahora - intervalo_B;
+              } else {
+                if (g == 0) {
+                  tiempo_C = ahora - intervalo_C;
+                } else {
+                  tiempo_B = ahora - intervalo_B;
+                }
+              }
+            }
+          }
+          else if (creds == "ON") {
+            adq = 1;
+            // Actualizar modo de muestreo según el modo g actual
+            muestreo = (g == 0) ? 1 : 2;
+            actualizarLedModo();
+            Serial.println("BLE: WiFi activado por comando.");
+            
+            lcd.backlight();
+            lcd.clear();
+            lcd.setCursor(1, 1);
+            lcd.print("WiFi Activado");
+            lcd.setCursor(1, 2);
+            lcd.print("Buscando red...");
+            delay(1500);
+            
+            // Forzar reconexión inmediata
+            WiFi.mode(WIFI_STA);
+            if (strlen(ssid1) > 0) {
+              WiFi.disconnect();
+              WiFi.begin(ssid1, password1);
+            }
+            
+            // Forzar inicio de mediciones online de inmediato
+            if (enMediciones) {
+              unsigned long ahora = millis();
+              if (ahora < PRIMEROS_MINUTOS) {
+                tiempo_B = ahora - intervalo_B;
+              } else {
+                if (g == 0) {
+                  tiempo_C = ahora - intervalo_C;
+                } else {
+                  tiempo_B = ahora - intervalo_B;
+                }
+              }
+            }
+          }
+          else {
+            // Formato WIFI:ssid|password o WIFI:ssid,password
+            int sepIdx = creds.indexOf('|');
+            if (sepIdx < 0) {
+              sepIdx = creds.indexOf(',');
+            }
+            if (sepIdx > 0) {
+              receivedSSID = creds.substring(0, sepIdx);
+              receivedPASS = creds.substring(sepIdx + 1);
+              wifiCredentialsReceived = true;
+              Serial.println("BLE: Credenciales parseadas (WIFI: SSID=" + receivedSSID + ")");
               
-              lcd.clear();
-              lcd.setCursor(1, 1);
-              lcd.print("Credenciales OK");
-              lcd.setCursor(1, 2);
-              lcd.print("Conectando WiFi...");
+              // Solo alteramos LED y LCD si no estamos en fase de mediciones/bucle principal
+              if (!enMediciones) {
+                // LED: CIAN/CELESTE
+                pixels.fill(pixels.Color(0, 255, 255));
+                pixels.show();
+                
+                lcd.clear();
+                lcd.setCursor(1, 1);
+                lcd.print("Credenciales OK");
+                lcd.setCursor(1, 2);
+                lcd.print("Conectando WiFi...");
+              }
             }
           }
         } 
+        else if (rxStr == "START") {
+          configReceived = true;
+          Serial.println("BLE: Configuración inicial confirmada (START).");
+        }
         else if (rxStr.startsWith("MODE:")) {
           String modeStr = rxStr.substring(5);
           int newMode = modeStr.toInt();
@@ -141,6 +220,18 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
             // Forzar a volver a la página 1 para mostrar el cambio de modo de inmediato
             paginaActual = 1;
             tiempoInicio = millis();
+            
+            // Forzar inicio inmediato de la nueva medición
+            unsigned long ahora = millis();
+            if (ahora < PRIMEROS_MINUTOS) {
+              tiempo_B = ahora - intervalo_B;
+            } else {
+              if (g == 0) { // ESTACION
+                tiempo_C = ahora - intervalo_C;
+              } else { // EXPERIMENTO
+                tiempo_B = ahora - intervalo_B;
+              }
+            }
           }
         }
         else if (rxStr.indexOf('|') > 0 || rxStr.indexOf(',') > 0) {
@@ -218,7 +309,8 @@ void enviarDatosBLE() {
       String jsonPayload = "{\"battery\":" + String(percentage) + 
                            ",\"mode\":" + String(g) + 
                            ",\"wifi\":" + String(wifiStatus) + 
-                           ",\"ssid\":\"" + wifiSSID + "\"}";
+                           ",\"ssid\":\"" + wifiSSID + "\"" +
+                           ",\"configured\":" + String(enMediciones ? 1 : 0) + "}";
                            
       pDataChar->setValue(jsonPayload.c_str());
       pDataChar->notify();

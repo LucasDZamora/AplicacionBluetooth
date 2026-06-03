@@ -14,7 +14,7 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
 
   // Control de ciclo de vida interno supeditado a la navegación de la App
   useEffect(() => {
-    if (currentScreen === 'wifi_config') {
+    if (currentScreen === 'wifi_config' || currentScreen === 'initial_config') {
       isScreenMountedRef.current = true;
       
       if (!isScanningRef.current) {

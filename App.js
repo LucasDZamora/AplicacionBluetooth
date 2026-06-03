@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';
 import NewEmaScreen from './src/screens/NewEmaScreen';
 import DetailsEmaScreen from './src/screens/DetailsEmaScreen';
 import WifiConfigScreen from './src/screens/WifiConfigScreen';
+import InitialConfigScreen from './src/screens/InitialConfigScreen';
 import { 
   sendWifiCredentials, 
   subscribeToMicaData, 
   changeOperatingMode, 
+  changeWifiState,
+  sendStartCommand,
   connectToDevice, 
   manager 
 } from './src/services/bluetoothService';
@@ -17,8 +20,14 @@ import useWifiScanner from './src/services/useWifiScanner';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('home');
+  const currentScreenRef = useRef('home');
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [wifiOrigin, setWifiOrigin] = useState('new_ema'); 
+
+  // Sincronizar el ref con la pantalla actual
+  useEffect(() => {
+    currentScreenRef.current = currentScreen;
+  }, [currentScreen]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // Estado de telemetría global en tiempo real
@@ -50,11 +59,19 @@ export default function App() {
         selectedDevice.rawDevice,
         (data) => {
           console.log("App.js: Telemetría en tiempo real recibida ->", data);
+          
+          // Si el dispositivo reporta que no está configurado, forzar redirección
+          if (data.configured === 0 && currentScreenRef.current !== 'initial_config') {
+            console.log("App.js: El MICA no está configurado. Redirigiendo a InitialConfigScreen...");
+            setCurrentScreen('initial_config');
+          }
+
           setTelemetry({
             battery: data.battery,
             mode: data.mode,
             wifi: data.wifi,
-            ssid: data.ssid || (data.wifi ? 'Conectado' : 'Desconectado')
+            ssid: data.ssid || (data.wifi ? 'Conectado' : 'Desconectado'),
+            configured: data.configured
           });
         },
         (error) => {
@@ -100,7 +117,7 @@ export default function App() {
   const handleBluetoothConnected = (device) => {
     setSelectedDevice(device);
     setWifiOrigin('new_ema');
-    setCurrentScreen('wifi_config');
+    setCurrentScreen('initial_config');
   };
 
   const handleSelectDevice = async (device) => {
@@ -176,11 +193,76 @@ export default function App() {
     }
   };
 
+  const handleChangeWifiState = async (enabled) => {
+    try {
+      const rawDeviceInstance = selectedDevice?.rawDevice;
+      await changeWifiState(rawDeviceInstance, enabled);
+      // Actualizamos el estado de wifi de manera optimista en la UI
+      setTelemetry(prev => ({ 
+        ...prev, 
+        wifi: enabled ? 1 : 0, 
+        ssid: enabled ? 'Conectando...' : 'Desconectado' 
+      }));
+    } catch (error) {
+      Alert.alert('Error de Configuración', error.message || 'No se pudo cambiar el estado de WiFi del EMA.');
+    }
+  };
+
+  const handleSendInitialConfig = async (config) => {
+    try {
+      const rawDeviceInstance = selectedDevice?.rawDevice;
+      if (!rawDeviceInstance) {
+        throw new Error("No hay dispositivo conectado.");
+      }
+
+      console.log(`App.js: Enviando configuración inicial. Modo: ${config.mode}, WiFi: ${config.wifiEnabled}`);
+      
+      // 1. Enviar modo de operación
+      await changeOperatingMode(rawDeviceInstance, config.mode.toString());
+      
+      // 2. Enviar WiFi (credenciales o desactivado)
+      if (config.wifiEnabled) {
+        await sendWifiCredentials(rawDeviceInstance, config.ssid, config.password);
+      } else {
+        await changeWifiState(rawDeviceInstance, false); // Enviar WIFI:OFF
+      }
+      
+      // 3. Enviar confirmación START
+      await sendStartCommand(rawDeviceInstance);
+      
+      // 4. Actualizar estado de telemetría local de forma optimista
+      setTelemetry({
+        battery: null,
+        mode: config.mode,
+        wifi: config.wifiEnabled ? 1 : 0,
+        ssid: config.wifiEnabled ? config.ssid : 'Desconectado'
+      });
+      
+      Alert.alert('Éxito', '¡Configuración inicial enviada correctamente al MICA!');
+      // Redirigir a Detalles EMA
+      setCurrentScreen('details');
+    } catch (error) {
+      console.error("App.js: Error en handleSendInitialConfig ->", error);
+      Alert.alert('Error', error.message || 'No se pudo enviar la configuración inicial.');
+    }
+  };
+
   if (currentScreen === 'new_ema') {
     return (
       <NewEmaScreen 
         onBack={() => setCurrentScreen('home')} 
         onConnectionSuccess={handleBluetoothConnected} 
+      />
+    );
+  }
+
+  if (currentScreen === 'initial_config') {
+    return (
+      <InitialConfigScreen
+        onBack={() => setCurrentScreen('new_ema')}
+        onSendConfig={handleSendInitialConfig}
+        networks={cellphoneNetworks}
+        isLoadingNetworks={loadingWifi}
       />
     );
   }
@@ -206,6 +288,7 @@ export default function App() {
         device={selectedDevice} 
         telemetry={telemetry}
         onChangeMode={handleChangeOperatingMode}
+        onChangeWifiState={handleChangeWifiState}
         onBack={() => {
           setSelectedDevice(null);
           setCurrentScreen('home');

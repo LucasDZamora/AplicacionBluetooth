@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch } from 'react-native';
 
-export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onBack, onConfigWifi }) {
+export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onChangeWifiState, onBack, onConfigWifi }) {
   const opMode = telemetry?.mode === 1 ? 'EXPERIMENTO' : 'ESTACIÓN';
 
   return (
@@ -184,7 +184,7 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onBa
         borderColor: '#f1f5f9',
         marginBottom: 40
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <View style={{
             width: 48,
             height: 48,
@@ -192,13 +192,13 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onBa
             backgroundColor: telemetry?.wifi ? '#e6f4ea' : '#fbe9e7',
             justifyContent: 'center',
             alignItems: 'center',
-            marginRight: 16
+            marginRight: 12
           }}>
             <Text style={{ fontSize: 22, color: telemetry?.wifi ? '#137333' : '#c53929' }}>
               {telemetry?.wifi ? '📶' : '📴'}
             </Text>
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
               Red Wi-Fi
             </Text>
@@ -208,20 +208,30 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onBa
           </View>
         </View>
 
-        {/* Botón de Ajustes (Engranaje) que dispara la pantalla de Wi-Fi */}
-        <TouchableOpacity 
-          onPress={onConfigWifi}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: '#f1f5f9',
-            justifyContent: 'center',
-            alignItems: 'center'
-          }}
-        >
-          <Text style={{ fontSize: 16, color: '#64748b' }}>⚙️</Text>
-        </TouchableOpacity>
+        {/* Control switch y engranaje */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Switch 
+            value={!!telemetry?.wifi}
+            onValueChange={(value) => onChangeWifiState && onChangeWifiState(value)}
+            trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+            thumbColor={telemetry?.wifi ? '#3b82f6' : '#94a3b8'}
+          />
+          <TouchableOpacity 
+            onPress={onConfigWifi}
+            disabled={!telemetry?.wifi}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: telemetry?.wifi ? '#f1f5f9' : '#f8fafc',
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: telemetry?.wifi ? 1 : 0.4
+            }}
+          >
+            <Text style={{ fontSize: 16, color: '#64748b' }}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
     </ScrollView>
