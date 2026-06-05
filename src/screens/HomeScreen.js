@@ -5,7 +5,7 @@ import { requestBluetoothPermissions } from '../services/permissions'; // Import
 
 const { width } = Dimensions.get('window');
 
-export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelectDevice }) {
+export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelectDevice, onTestBackgroundService }) {
   const [devices, setDevices] = useState([]);
   const [hasPermissions, setHasPermissions] = useState(false);
 

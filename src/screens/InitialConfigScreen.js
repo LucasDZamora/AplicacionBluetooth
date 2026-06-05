@@ -40,7 +40,6 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
   };
 
   const isFormValid = selectedMode !== null && wifiEnabled !== null && (!wifiEnabled || ssid.trim().length > 0);
-
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }} contentContainerStyle={{ paddingBottom: 60 }}>
       {/* HEADER */}

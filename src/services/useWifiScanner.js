@@ -7,8 +7,7 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
   const [loadingWifi, setLoadingWifi] = useState(false);
 
   // Candado para evitar hilos nativos duplicados en el chip de Wi-Fi
-  const isScanningRef = useRef(false);
-  
+  const isScanningRef = useRef(false); 
   // Rastreador síncrono para saber si el usuario sigue dentro de la pantalla
   const isScreenMountedRef = useRef(false);
 
