@@ -7,14 +7,13 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
   const [loadingWifi, setLoadingWifi] = useState(false);
 
   // Candado para evitar hilos nativos duplicados en el chip de Wi-Fi
-  const isScanningRef = useRef(false);
-  
+  const isScanningRef = useRef(false); 
   // Rastreador síncrono para saber si el usuario sigue dentro de la pantalla
   const isScreenMountedRef = useRef(false);
 
   // Control de ciclo de vida interno supeditado a la navegación de la App
   useEffect(() => {
-    if (currentScreen === 'wifi_config') {
+    if (currentScreen === 'wifi_config' || currentScreen === 'initial_config') {
       isScreenMountedRef.current = true;
       
       if (!isScanningRef.current) {
@@ -48,13 +47,22 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
         console.log("Hardware saturado o respuesta inválida. Inicializando arreglo vacío.");
         setCellphoneNetworks([]);
       } else {
-        const mappedNetworks = wifiList.map((net, index) => ({
-          id: String(index + 1),
-          ssid: net?.SSID || "Red Oculta / Desconocida",
-          secured: net?.capabilities && !net.capabilities.includes('[OPEN]')
-        })).filter(net => net.ssid && net.ssid.trim() !== "");
+        const uniqueNetworks = [];
+        const seenSSIDs = new Set();
         
-        setCellphoneNetworks(mappedNetworks);
+        wifiList.forEach((net) => {
+          const ssid = net?.SSID;
+          if (ssid && ssid.trim() !== "" && !seenSSIDs.has(ssid)) {
+            seenSSIDs.add(ssid);
+            uniqueNetworks.push({
+              id: String(uniqueNetworks.length + 1),
+              ssid: ssid,
+              secured: net?.capabilities && !net.capabilities.includes('[OPEN]')
+            });
+          }
+        });
+        
+        setCellphoneNetworks(uniqueNetworks);
       }
 
     } catch (error) {

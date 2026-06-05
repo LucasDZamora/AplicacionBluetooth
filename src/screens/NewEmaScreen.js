@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, FlatList, Alert, ActivityIndicator } from 'react-native';
-import RNBluetoothClassic from 'react-native-bluetooth-classic';
-import { scanForDevices, connectToDevice } from '../services/bluetoothService';
+import { scanForDevices, stopScanning, connectToDevice } from '../services/bluetoothService';
 
 export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
   const [scanState, setScanState] = useState('idle'); // 'idle', 'scanning', 'results'
   const [devices, setDevices] = useState([]);
   const [connectingId, setConnectingId] = useState(null);
   const fadeAnim = useRef(new Animated.Value(0.3)).current;
+  const scanTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (scanState === 'scanning') {
@@ -19,28 +19,50 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
         ])
       ).start();
 
+      setDevices([]);
       executeDeviceDiscovery();
     } else {
       fadeAnim.setValue(1);
+      stopScanning();
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
     }
+    return () => {
+      stopScanning();
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
+    };
   }, [scanState]);
 
-  const executeDeviceDiscovery = async () => {
+  const executeDeviceDiscovery = () => {
     try {
-      // 1. Descubrir dispositivos Bluetooth en el entorno
-      const discovered = await scanForDevices();
+      console.log("App: Iniciando escaneo de dispositivos MICA por BLE...");
       
-      // 2. Obtener los dispositivos que ya están vinculados/emparejados en el teléfono
-      const bonded = await RNBluetoothClassic.getBondedDevices();
-      const bondedAddresses = bonded.map(d => d.address);
+      scanForDevices(
+        (device) => {
+          setDevices(prev => {
+            if (prev.some(d => d.id === device.id)) return prev;
+            return [...prev, device];
+          });
+        },
+        (error) => {
+          console.error("App: Error escaneando BLE:", error);
+          Alert.alert('Error', 'Hubo un problema al buscar dispositivos BLE.');
+          setScanState('idle');
+        }
+      );
 
-      // 3. Filtrar para dejar ÚNICAMENTE los dispositivos que NO están vinculados
-      const nonBondedDevices = discovered.filter(device => !bondedAddresses.includes(device.address));
+      // Finalizar escaneo automáticamente después de 6 segundos
+      scanTimeoutRef.current = setTimeout(() => {
+        console.log("App: Escaneo finalizado automáticamente.");
+        stopScanning();
+        setScanState('results');
+      }, 6000);
 
-      setDevices(nonBondedDevices);
-      setScanState('results');
     } catch (error) {
-      console.error("Error al escanear dispositivos:", error);
+      console.error("Error al iniciar escaneo de dispositivos:", error);
       Alert.alert('Error', 'Hubo un problema al buscar dispositivos Bluetooth.');
       setScanState('idle');
     }
@@ -48,23 +70,28 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
 
   const handleConnect = async (rawDevice) => {
     try {
-      setConnectingId(rawDevice.address);
-      const success = await connectToDevice(rawDevice);
-      if (success) {
+      setConnectingId(rawDevice.id);
+      console.log(`App: Intentando establecer conexión BLE con: ${rawDevice.name} (${rawDevice.id})`);
+      
+      const connectedDevice = await connectToDevice(rawDevice);
+      if (connectedDevice) {
+        console.log("App: ¡Conectado a MICA por BLE exitosamente! (ID: " + connectedDevice.id + ")");
+        
         // Mapeamos el dispositivo al formato de la interfaz visual
-        const name = rawDevice.name || 'Estación MICA';
+        const name = connectedDevice.name || 'Estación MICA';
         const mappedDevice = {
-          id: rawDevice.address,
+          id: connectedDevice.id,
           name: name,
-          type: 'Estación Bluetooth',
+          type: 'Estación BLE',
           initial: name.charAt(0).toUpperCase(),
-          rawDevice: rawDevice
+          rawDevice: connectedDevice
         };
 
         // Redirige automáticamente a la pantalla de configuración de Wi-Fi
         onConnectionSuccess(mappedDevice);
       }
     } catch (err) {
+      console.error("App: Fallo de conexión BLE ->", err);
       Alert.alert('Error de conexión', err.message || 'No se pudo conectar al dispositivo.');
     } finally {
       setConnectingId(null);
@@ -147,7 +174,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
       {scanState === 'results' && (
         <FlatList
           data={devices || []}
-          keyExtractor={(item) => item.address}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: 40 }}
           ListHeaderComponent={
             <Text style={{ fontSize: 13, color: '#0f172a', fontWeight: '700', marginBottom: 20, textTransform: 'uppercase' }}>
@@ -176,12 +203,12 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: '#0f172a' }}>{item.name || 'Dispositivo desconocido'}</Text>
-                  <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{item.address}</Text>
+                  <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{item.id}</Text>
                 </View>
               </View>
 
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {connectingId === item.address ? (
+                {connectingId === item.id ? (
                   <ActivityIndicator size="small" color="#3b82f6" />
                 ) : (
                   <>

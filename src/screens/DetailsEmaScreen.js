@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import BatteryIndicator from '../components/BatteryIndicator';
 
-export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
-  const [opMode, setOpMode] = useState('ESTACIÓN'); // Estado para alternar el modo de operación
+// IMPORTACIÓN DE LOS ÍCONOS VECTORIALES DE EXPO
+import { MaterialCommunityIcons, FontAwesome5, Feather, Ionicons } from '@expo/vector-icons';
 
+
+export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onChangeWifiState, onBack, onConfigWifi }) {
+  const opMode = telemetry?.mode === 1 ? 'EXPERIMENTO' : 'ESTACIÓN';
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }}>
       
@@ -23,7 +27,11 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             marginRight: 16
           }}
         >
-          <Text style={{ fontSize: 18, color: '#1e293b', fontWeight: 'bold' }}>←</Text>
+          <Feather 
+            name="chevron-left" 
+            size={24} 
+            color="#1e293b" 
+          />
         </TouchableOpacity>
         <Text style={{ fontSize: 22, fontWeight: '900', color: '#0f172a', fontStyle: 'italic' }}>
           DETALLES EMA
@@ -63,21 +71,24 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             </Text>
           </View>
 
-          {/* Nombre y Estado de Batería */}
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a' }}>
               {device?.name || 'Estación MICA'}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-              <Text style={{ color: '#10b981', fontSize: 13, marginRight: 4 }}>🔋</Text>
-              <Text style={{ color: '#10b981', fontSize: 13, fontWeight: '700' }}>85% Batería</Text>
-            </View>
+            
+            {/* 2. REEMPLAZO: Solo llamas al componente modular pasando la prop */}
+            <BatteryIndicator 
+              batteryLevel={telemetry?.battery} 
+              deviceId={device?.id} 
+            />
+            
           </View>
+
         </View>
       </View>
 
       {/* SECCIÓN: MODO DE OPERACIÓN */}
-      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '#800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
+      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
         Modo de Operación
       </Text>
 
@@ -85,7 +96,7 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
         
         {/* MODO ESTACIÓN */}
         <TouchableOpacity 
-          onPress={() => setOpMode('ESTACIÓN')}
+          onPress={() => onChangeMode && onChangeMode('0')}
           style={{
             flex: 1,
             aspectRatio: 1,
@@ -93,7 +104,7 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             borderRadius: 28,
             padding: 24,
             justifyContent: 'center',
-            alignItems: opMode === 'ESTACIÓN' ? 'flex-start' : 'center',
+            alignItems: 'center',
             borderWidth: 1,
             borderColor: opMode === 'ESTACIÓN' ? '#3b82f6' : '#f1f5f9',
             shadowColor: '#3b82f6',
@@ -112,7 +123,12 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             alignItems: 'center',
             marginBottom: 16
           }}>
-            <Text style={{ fontSize: 22, color: opMode === 'ESTACIÓN' ? '#ffffff' : '#3b82f6' }}>📡</Text>
+            {/* NUEVO ÍCONO VECTORIAL: LAYERS */}
+            <MaterialCommunityIcons 
+              name="layers-outline" 
+              size={24} 
+              color={opMode === 'ESTACIÓN' ? '#ffffff' : '#3b82f6'} 
+            />
           </View>
           <Text style={{ 
             fontSize: 13, 
@@ -126,7 +142,7 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
 
         {/* MODO EXPERIMENTO */}
         <TouchableOpacity 
-          onPress={() => setOpMode('EXPERIMENTO')}
+          onPress={() => onChangeMode && onChangeMode('1')}
           style={{
             flex: 1,
             aspectRatio: 1,
@@ -134,7 +150,7 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             borderRadius: 28,
             padding: 24,
             justifyContent: 'center',
-            alignItems: opMode === 'EXPERIMENTO' ? 'flex-start' : 'center',
+            alignItems: 'center',
             borderWidth: 1,
             borderColor: opMode === 'EXPERIMENTO' ? '#a855f7' : '#f1f5f9',
             shadowColor: '#a855f7',
@@ -153,7 +169,12 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
             alignItems: 'center',
             marginBottom: 16
           }}>
-            <Text style={{ fontSize: 22, color: opMode === 'EXPERIMENTO' ? '#ffffff' : '#a855f7' }}>🧪</Text>
+            {/* NUEVO ÍCONO VECTORIAL: FLASK */}
+            <FontAwesome5 
+              name="flask" 
+              size={20} 
+              color={opMode === 'EXPERIMENTO' ? '#ffffff' : '#a855f7'} 
+            />
           </View>
           <Text style={{ 
             fontSize: 13, 
@@ -167,7 +188,7 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
       </View>
 
       {/* SECCIÓN: CONECTIVIDAD */}
-      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '#800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
+      <Text style={{ fontSize: 12, color: '#0f172a', fontWeight: '800', letterSpacing: 0.5, marginBottom: 16, textTransform: 'uppercase' }}>
         Conectividad
       </Text>
 
@@ -182,42 +203,60 @@ export default function DetailsEmaScreen({ device, onBack, onConfigWifi }) {
         borderColor: '#f1f5f9',
         marginBottom: 40
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <View style={{
             width: 48,
             height: 48,
             borderRadius: 16,
-            backgroundColor: '#e6f4ea',
+            backgroundColor: telemetry?.wifi ? '#e6f4ea' : '#fbe9e7',
             justifyContent: 'center',
             alignItems: 'center',
-            marginRight: 16
+            marginRight: 12
           }}>
-            <Text style={{ fontSize: 22, color: '#137333' }}>📶</Text>
+            <Feather 
+              name={telemetry?.wifi ? "wifi" : "wifi-off"} 
+              size={24} 
+              color={telemetry?.wifi ? '#137333' : '#c53929'} 
+            />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
               Red Wi-Fi
             </Text>
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#0f172a', marginTop: 2 }}>
-              Red_Educativa_01
+              {telemetry?.ssid || 'Desconectado'}
             </Text>
           </View>
         </View>
 
-        {/* Botón de Ajustes (Engranaje) que dispara la pantalla de Wi-Fi */}
-        <TouchableOpacity 
-          onPress={onConfigWifi}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: '#f1f5f9',
-            justifyContent: 'center',
-            alignItems: 'center'
-          }}
-        >
-          <Text style={{ fontSize: 16, color: '#64748b' }}>⚙️</Text>
-        </TouchableOpacity>
+        {/* Control switch y engranaje */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Switch 
+            value={!!telemetry?.wifi}
+            onValueChange={(value) => onChangeWifiState && onChangeWifiState(value)}
+            trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+            thumbColor={telemetry?.wifi ? '#3b82f6' : '#94a3b8'}
+          />
+            <TouchableOpacity 
+              onPress={onConfigWifi}
+              disabled={!telemetry?.wifi}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: telemetry?.wifi ? '#f1f5f9' : '#f8fafc',
+                justifyContent: 'center',
+                alignItems: 'center',
+                opacity: telemetry?.wifi ? 1 : 0.4
+              }}
+            >
+              <Feather 
+                name="settings" 
+                size={18} 
+                color="#64748b" 
+              />
+            </TouchableOpacity>
+        </View>
       </View>
 
     </ScrollView>
