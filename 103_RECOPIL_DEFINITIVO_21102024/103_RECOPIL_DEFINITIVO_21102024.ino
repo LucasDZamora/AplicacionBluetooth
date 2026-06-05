@@ -518,6 +518,25 @@ void setup()
 
     if (connected) 
     {
+      // Si se conectó usando las credenciales recién recibidas por BLE, guardarlas en EEPROM
+      if (wifiCredentialsReceived && receivedSSID.length() > 0) 
+      {
+        if (strcmp(ssid1, receivedSSID.c_str()) != 0) 
+        {
+          strncpy(ssid2, ssid1, 32);
+          strncpy(password2, password1, 32);
+          EEPROM.begin(EEPROM_SIZE);
+          EEPROM.put(64, ssid2);
+          EEPROM.put(96, password2);
+        }
+        strncpy(ssid1, receivedSSID.c_str(), 32);
+        strncpy(password1, receivedPASS.c_str(), 32);
+        EEPROM.begin(EEPROM_SIZE);
+        EEPROM.put(0, ssid1);
+        EEPROM.put(32, password1);
+        EEPROM.commit();
+      }
+
       lcd.clear();
       lcd.setCursor(1, 1);
       lcd.print("WiFi Conectado!");

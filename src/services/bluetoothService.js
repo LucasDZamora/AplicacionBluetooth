@@ -113,9 +113,6 @@ export const connectToDevice = async (device) => {
   }
 };
 
-/**
- * Envía credenciales Wi-Fi al ESP32 usando la característica de comandos BLE.
- */
 export const sendWifiCredentials = async (device, ssid, password) => {
   if (!device) {
     throw new Error('No hay ningún dispositivo MICA conectado por BLE.');
