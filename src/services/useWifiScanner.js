@@ -47,13 +47,22 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
         console.log("Hardware saturado o respuesta inválida. Inicializando arreglo vacío.");
         setCellphoneNetworks([]);
       } else {
-        const mappedNetworks = wifiList.map((net, index) => ({
-          id: String(index + 1),
-          ssid: net?.SSID || "Red Oculta / Desconocida",
-          secured: net?.capabilities && !net.capabilities.includes('[OPEN]')
-        })).filter(net => net.ssid && net.ssid.trim() !== "");
+        const uniqueNetworks = [];
+        const seenSSIDs = new Set();
         
-        setCellphoneNetworks(mappedNetworks);
+        wifiList.forEach((net) => {
+          const ssid = net?.SSID;
+          if (ssid && ssid.trim() !== "" && !seenSSIDs.has(ssid)) {
+            seenSSIDs.add(ssid);
+            uniqueNetworks.push({
+              id: String(uniqueNetworks.length + 1),
+              ssid: ssid,
+              secured: net?.capabilities && !net.capabilities.includes('[OPEN]')
+            });
+          }
+        });
+        
+        setCellphoneNetworks(uniqueNetworks);
       }
 
     } catch (error) {

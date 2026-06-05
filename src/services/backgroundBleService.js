@@ -83,13 +83,15 @@ export const backgroundTaskDefinition = async (taskData) => {
         device,
         (data) => {
           const level = Number(data.battery);
+          const alertThreshold = 15;
+          const recoveryThreshold = alertThreshold + 5;
           if (!isNaN(level) && level > 0) {
-            if (level <= 15) {
+            if (level <= alertThreshold) {
               if (!hasNotifiedInBg) {
                 triggerBatteryAlert(level);
                 hasNotifiedInBg = true;
               }
-            } else {
+            } else if (level > recoveryThreshold) {
               hasNotifiedInBg = false;
             }
           }

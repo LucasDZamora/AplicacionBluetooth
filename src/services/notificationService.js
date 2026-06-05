@@ -28,8 +28,8 @@ export const triggerBatteryAlert = async (level) => {
     console.log(`[NotificationService] Lanzando notificación real para el ${numericLevel}%`);
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "⚠️ Batería Crítica en Estación MICA",
-        body: `La batería del dispositivo ha bajado al ${numericLevel}%. Requiere atención inmediata.`,
+        title: "Advertencia de Energía!",
+        body: `La batería de la EMA está al ${numericLevel}%. Conecte el dispositivo a una fuente de poder para evitar interrupciones en su actividad pedagógica`,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.MAX,
         channelId: 'default', 

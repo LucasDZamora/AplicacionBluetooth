@@ -35,6 +35,7 @@ export default function App() {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [wifiOrigin, setWifiOrigin] = useState('new_ema'); 
   const hasNotifiedRef = useRef(false);
+  const isExpectingDisconnectRef = useRef(false);
 
   // EFECTO: Inicialización y solicitud de permisos al arrancar la app
   useEffect(() => {
@@ -85,7 +86,7 @@ export default function App() {
     ssid: 'Desconectado'
   });
 
-  // EFECTO: Monitoreo del nivel crítico de batería
+  // EFECTO: Monitoreo del nivel crítico de batería con histéresis
   useEffect(() => {
     const level = telemetry?.battery;
     
@@ -94,16 +95,18 @@ export default function App() {
     }
 
     const numericLevel = Number(level);
+    const alertThreshold = 15;
+    const recoveryThreshold = alertThreshold + 5; // Histéresis: requiere subir más del límite para recuperar
     
     if (!isNaN(numericLevel) && numericLevel > 0) {
-      if (numericLevel <= 15) {
+      if (numericLevel <= alertThreshold) {
         if (!hasNotifiedRef.current) {
           console.log("App.js disparando alerta global");
           triggerBatteryAlert(numericLevel);
           hasNotifiedRef.current = true;
         }
-      } else {
-        // Si el nivel subió de 15, reseteamos el flag
+      } else if (numericLevel > recoveryThreshold) {
+        // Histéresis: Solo reseteamos el flag si sube significativamente del umbral
         if (hasNotifiedRef.current) {
           console.log("Batería recuperada, reseteando flag");
           hasNotifiedRef.current = false;
@@ -164,10 +167,19 @@ export default function App() {
           console.log("App.js: Deteniendo Foreground Service por desconexión física.");
           stopBackgroundBle();
 
-          Alert.alert(
-            "Conexión Perdida",
-            `Se ha interrumpido la conexión Bluetooth con ${selectedDevice.name || 'el EMA'}.`
-          );
+          if (isExpectingDisconnectRef.current) {
+            console.log("App.js: Desconexión esperada por configuración/cambio de Wi-Fi.");
+            isExpectingDisconnectRef.current = false;
+            Alert.alert(
+              "Aplicando Parámetros",
+              "El MICA se ha desconectado temporalmente para aplicar la configuración y conectarse al Wi-Fi. Por favor, vuelve a conectarlo en unos momentos desde el inicio."
+            );
+          } else {
+            Alert.alert(
+              "Conexión Perdida",
+              `Se ha interrumpido la conexión Bluetooth con ${selectedDevice.name || 'el EMA'}.`
+            );
+          }
           setSelectedDevice(null);
           setCurrentScreen('home');
         }
@@ -265,12 +277,14 @@ export default function App() {
   const handleWifiConfigured = async (ssid, password) => {
     try {
       const rawDeviceInstance = selectedDevice?.rawDevice;
+      isExpectingDisconnectRef.current = true;
       await sendWifiCredentials(rawDeviceInstance, ssid, password);
       
       Alert.alert('Éxito', '¡Credenciales de Wi-Fi enviadas correctamente al MICA!');
       setRefreshTrigger(prev => prev + 1);
       setCurrentScreen('details');
     } catch (error) {
+      isExpectingDisconnectRef.current = false;
       Alert.alert('Error', error.message || 'No se pudieron enviar las credenciales.');
     }
   };
@@ -313,6 +327,7 @@ export default function App() {
       
       // 2. Enviar WiFi (credenciales o desactivado)
       if (config.wifiEnabled) {
+        isExpectingDisconnectRef.current = true;
         await sendWifiCredentials(rawDeviceInstance, config.ssid, config.password);
       } else {
         await changeWifiState(rawDeviceInstance, false); // Enviar WIFI:OFF
@@ -347,6 +362,7 @@ export default function App() {
       Alert.alert('Éxito', '¡Configuración inicial enviada correctamente al MICA!');
       setCurrentScreen('details');
     } catch (error) {
+      isExpectingDisconnectRef.current = false;
       console.error("App.js: Error en handleSendInitialConfig ->", error);
       Alert.alert('Error', error.message || 'No se pudo enviar la configuración inicial.');
     }
