@@ -14,6 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.mica.bluetooth",
       "infoPlist": {
         "UIBackgroundModes": [
           "bluetooth-central",
@@ -50,6 +51,8 @@
     },
     "plugins": [
       "expo-status-bar",
+      "expo-asset",
+      "expo-font",
       [
         "react-native-ble-plx",
         {
