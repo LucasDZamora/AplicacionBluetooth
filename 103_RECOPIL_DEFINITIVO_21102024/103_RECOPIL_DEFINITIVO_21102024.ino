@@ -142,10 +142,10 @@ bool isDaylightSavings(int gpsDay, int gpsMonth) {
 // Declaraciones para BLE MICA
 void inicializarBLE();
 void enviarDatosBLE();
-extern bool wifiCredentialsReceived;
+extern volatile bool wifiCredentialsReceived;
 extern String receivedSSID;
 extern String receivedPASS;
-extern bool bleDeviceConnected;
+extern volatile bool bleDeviceConnected;
 
 char ssid1[32] = {0};
 char password1[32] = {0};
@@ -179,13 +179,7 @@ bool lecturasCompletadas = false;
 
 // Función para leer el voltaje de la batería
 float leerVoltajeBateria() {
-  unsigned long suma = 0;
-  const int muestras = 50;
-  for (int i = 0; i < muestras; i++) {
-    suma += analogRead(BATTERY_PIN);
-    delayMicroseconds(150); // Pequeña pausa para estabilizar
-  }
-  float lecturaADC = (float)suma / muestras;
+  int lecturaADC = analogRead(BATTERY_PIN);  // Leer valor ADC del pin GPIO33
   float Vout = (lecturaADC / (float)ADC_max) * Vref;  // Calcular Vout
   float Vin = Vout * (R1 + R2) / R2;  // Calcular Vin (voltaje de la batería)
   return Vin;
@@ -193,7 +187,7 @@ float leerVoltajeBateria() {
 
 // Función para calcular el porcentaje de batería
 int calcularPorcentajeBateria(float Vin) {
-  if (Vin >= 4.2) {
+  if (Vin >= 4.0) {   //4.2
     return 100;
   } else if (Vin <= 3.0) {
     return 0;
@@ -241,7 +235,6 @@ bool connected = false;
 bool res;
 bool marca_tiempo;
 bool enMediciones = false;
-bool configReceived = false;
 //--------------------------------------------MICS5524 ----NO USADO
 #include "DFRobot_MICS.h"
 #define CALIBRATION_TIME   3                      // Default calibration time is three minutes
@@ -416,145 +409,247 @@ void setup()
     pixels.show();   // Mandamos todos los colores con la actualización hecha
     delay(DELAYVAL);
     } 
-        // Iniciar BLE para recibir configuración
-  inicializarBLE();
-  
-  // Feedback visual LED: AZUL esperando config
-  pixels.fill(pixels.Color(0, 0, 255));
-  pixels.show();
-
-  lcd.clear();
-  lcd.setCursor(1, 0);
-  lcd.print("------------------");
-  lcd.setCursor(1, 1);
-  lcd.print("   MICA BLE OK   ");
-  lcd.setCursor(1, 2);
-  lcd.print(" Envíe Config App");
-  lcd.setCursor(1, 3);
-  lcd.print("------------------");
-
-  // Esperar a que se reciba la configuración inicial ("START")
-  while (!configReceived) 
+      
+ // valorPulsador = digitalRead(pulsadorPin);  // Lectura digital de pulsadorPin
+ 
+  if (valorPulsador == 1) 
   {
-    delay(100);
-    enviarDatosBLE();
-  }
+    adq=1; //----------------------------------variable para saber si el dispositivo se conectó a wifi
+    
+    // Iniciar el servidor BLE para configuración primero
+    inicializarBLE();
+    
+    // Feedback visual LED: AZUL para BLE listo (esperando App)
+    pixels.fill(pixels.Color(0, 0, 255));
+    pixels.show();
 
-  // Una vez recibida la configuración inicial, procesar WiFi
-  lcd.clear();
-  lcd.setCursor(1, 1);
-  lcd.print("Config Recibida!");
-  delay(1500);
-
-  if (adq == 1) 
-  {
+    lcd.clear();
+    lcd.setCursor(1, 0);
+    lcd.print("------------------");
+    lcd.setCursor(1, 1);
+    lcd.print(" MODO CONFIG BLE ");
+    lcd.setCursor(1, 2);
+    lcd.print(" Conecte desde App");
+    lcd.setCursor(1, 3);
+    lcd.print("------------------");
+    
+    // Esperamos a que la App se conecte vía BLE
+    while (!bleDeviceConnected) 
+    {
+      delay(100);
+      enviarDatosBLE(); // Atender publicidad BLE
+    }
+    
+    // Una vez conectado BLE, intentamos conectar a las redes guardadas
     lcd.clear();
     lcd.setCursor(1, 1);
-    lcd.print("Conectando WiFi...");
+    lcd.print(" BLE Conectado! ");
+    lcd.setCursor(1, 2);
+    lcd.print(" Buscando red...");
+    delay(2000); 
     
-    WiFi.mode(WIFI_STA);
-    connected = false;
+    // Inicialización de la memoria EEPROM
+    EEPROM.begin(EEPROM_SIZE);
+    // Leer SSID y contraseña de las dos redes de la memoria EEPROM
+    EEPROM.get(0, ssid1);
+    EEPROM.get(32, password1);
+    EEPROM.get(64, ssid2);
+    EEPROM.get(96, password2); 
 
-    // Intentar conectar con las credenciales recibidas si existen
-    if (wifiCredentialsReceived && receivedSSID.length() > 0) 
+    // Configurar el modo WiFi en modo estación (STA)
+    WiFi.mode(WIFI_STA);  
+    
+    // Intentar conectar a la primera red guardada
+    if (strlen(ssid1) > 0) 
     {
-      WiFi.disconnect();
-      WiFi.begin(receivedSSID.c_str(), receivedPASS.c_str());
+      WiFi.begin(ssid1, password1);
       unsigned long startTime = millis();
-      while (WiFi.status() != WL_CONNECTED && millis() - startTime < 12000) 
-      {
-        delay(500);
-        enviarDatosBLE();
+      while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
+      { // 10 segundos de tiempo de espera
+          delay(500);
+          enviarDatosBLE(); // Seguir procesando telemetría BLE
       }
+
       if (WiFi.status() == WL_CONNECTED) 
       {
-        connected = true;
-        f = 1;
-      }
+         lcd.clear();
+         lcd.setCursor(2, 1);
+         lcd.print(" Red encontrada");
+         delay(2000); 
+         connected = true;
+      } 
     }
 
-    // Si no se conectó, intentar con redes EEPROM
+    // Si la conexión a la primera red falla, intentar conectar a la segunda red guardada
+    if (!connected && strlen(ssid2) > 0) {
+      WiFi.begin(ssid2, password2);
+      unsigned long startTime = millis();
+      while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
+      {      // 10 segundos de tiempo de espera
+          delay(500);
+          enviarDatosBLE(); // Seguir procesando telemetría BLE
+      }
+
+      if (WiFi.status() == WL_CONNECTED) {
+         lcd.clear();
+         lcd.setCursor(2, 1);
+         lcd.print(" Red encontrada");
+         delay(2000); 
+         connected = true;
+      }
+    }   
+
+    // Si no logramos conectarnos a las redes guardadas, entramos al portal BLE para recibir credenciales
     if (!connected) 
-    {
-      EEPROM.begin(EEPROM_SIZE);
-      EEPROM.get(0, ssid1);
-      EEPROM.get(32, password1);
-      EEPROM.get(64, ssid2);
-      EEPROM.get(96, password2);
+    {  
+      // Volver a azul para indicar que seguimos esperando configuración Wi-Fi en App
+      pixels.fill(pixels.Color(0, 0, 255));
+      pixels.show();
 
-      if (strlen(ssid1) > 0) 
+      lcd.clear();
+      lcd.setCursor(1, 0);
+      lcd.print("------------------");
+      lcd.setCursor(1, 1);
+      lcd.print(" MODO CONFIG BLE ");
+      lcd.setCursor(1, 2);
+      lcd.print(" Envíe WiFi desde");
+      lcd.setCursor(1, 3);
+      lcd.print(" la aplicación  ");
+
+      bool wifiConfigured = false;
+      while (!wifiConfigured) 
       {
+        // Esperamos a recibir las credenciales vía BLE
+        wifiCredentialsReceived = false;
+        while (!wifiCredentialsReceived) 
+        {
+          delay(100);
+          enviarDatosBLE(); // Manejar la publicidad/conexión BLE de fondo
+        }
+
+        // Intento de conexión con los datos recibidos
+        lcd.clear();
+        lcd.setCursor(1, 1);
+        lcd.print("Conectando a:");
+        lcd.setCursor(1, 2);
+        lcd.print(receivedSSID.substring(0, 18));
+        
         WiFi.disconnect();
-        WiFi.begin(ssid1, password1);
-        unsigned long startTime = millis();
-        while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
+        WiFi.begin(receivedSSID.c_str(), receivedPASS.c_str());
+
+        unsigned long connStart = millis();
+        bool connTimeout = false;
+        while (WiFi.status() != WL_CONNECTED && !connTimeout) 
         {
           delay(500);
           enviarDatosBLE();
+          if (millis() - connStart > 15000) { // 15 segundos timeout
+            connTimeout = true;
+          }
         }
-        if (WiFi.status() == WL_CONNECTED) 
-        {
-          connected = true;
-          f = 1;
-        }
-      }
-      if (!connected && strlen(ssid2) > 0) 
-      {
-        WiFi.disconnect();
-        WiFi.begin(ssid2, password2);
-        unsigned long startTime = millis();
-        while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) 
-        {
-          delay(500);
-          enviarDatosBLE();
-        }
-        if (WiFi.status() == WL_CONNECTED) 
-        {
-          connected = true;
-          f = 1;
-        }
-      }
-    }
 
-    if (connected) 
-    {
-      // Si se conectó usando las credenciales recién recibidas por BLE, guardarlas en EEPROM
-      if (wifiCredentialsReceived && receivedSSID.length() > 0) 
-      {
-        if (strcmp(ssid1, receivedSSID.c_str()) != 0) 
+        if (WiFi.status() == WL_CONNECTED) 
         {
-          strncpy(ssid2, ssid1, 32);
-          strncpy(password2, password1, 32);
-          EEPROM.begin(EEPROM_SIZE);
+          // Conexión exitosa!
+          f = 1;
+          connected = true;
+          wifiConfigured = true;
+
+          // LED en VERDE
+          pixels.fill(pixels.Color(0, 255, 0));
+          pixels.show();
+
+          lcd.clear();
+          lcd.setCursor(1, 1);
+          lcd.print("WiFi Conectado!");
+          lcd.setCursor(1, 2);
+          lcd.print("Guardando red...");
+          delay(2000);
+
+          // COMENTADO POR SOLICITUD DEL USUARIO PARA PRUEBAS SIN SOBREESCRITURA
+          /*
+          // Rotar las redes guardadas en EEPROM
+          strcpy(ssid2, ssid1);
+          strcpy(password2, password1);
+          strcpy(ssid1, receivedSSID.c_str());
+          strcpy(password1, receivedPASS.c_str());
+
+          EEPROM.put(0, ssid1);
+          EEPROM.put(32, password1);
           EEPROM.put(64, ssid2);
           EEPROM.put(96, password2);
-        }
-        strncpy(ssid1, receivedSSID.c_str(), 32);
-        strncpy(password1, receivedPASS.c_str(), 32);
-        EEPROM.begin(EEPROM_SIZE);
-        EEPROM.put(0, ssid1);
-        EEPROM.put(32, password1);
-        EEPROM.commit();
-      }
+          EEPROM.commit();
+          */
+        } 
+        else 
+        {
+          // Error en la conexión
+          f = 0;
+          connected = false;
+          
+          // LED en ROJO
+          pixels.fill(pixels.Color(255, 0, 0));
+          pixels.show();
 
+          lcd.clear();
+          lcd.setCursor(1, 1);
+          lcd.print("¡Error de WiFi!");
+          lcd.setCursor(1, 2);
+          lcd.print("Reintente en App");
+          delay(3000);
+
+          // Volver a azul para indicar que seguimos esperando configuración
+          pixels.fill(pixels.Color(0, 0, 255));
+          pixels.show();
+
+          lcd.clear();
+          lcd.setCursor(1, 0);
+          lcd.print("------------------");
+          lcd.setCursor(1, 1);
+          lcd.print(" MODO CONFIG BLE ");
+          lcd.setCursor(1, 2);
+          lcd.print(" Envíe WiFi desde");
+          lcd.setCursor(1, 3);
+          lcd.print(" la aplicación  ");
+        }
+      }
+    }
+    else 
+    {          
+      // Si ya conectó con las guardadas, la conexión BLE ya está activa
+      f = 1; 
+
+      // Mostrar WiFi Conectado
+      pixels.fill(pixels.Color(0, 255, 0));
+      pixels.show();
       lcd.clear();
       lcd.setCursor(1, 1);
       lcd.print("WiFi Conectado!");
-      delay(1500);
-    } 
+      delay(2000);
+    }
   }
-  else 
+  else
   {
-    f = 0;
-    WiFi.disconnect(true);
-    lcd.clear();
-    lcd.setCursor(1, 1);
-    lcd.print("Modo Sin WiFi");
-    delay(1500);
-  }
+    f=0;
+    adq=2;
+    // Iniciamos BLE de todas formas para monitoreo local sin Wi-Fi
+    inicializarBLE();
+  }  
 
+
+  //----------------------------------------------------------------------------------------------------------------
+  //----------------------------------------------------------------------------------------------------------------
+  lcd.clear();  
+  MICA_bienve();
+  delay(1000);  
   //------------------------------------Inicialización BME680
   bme.begin();
+ /* while (!Serial);
+ // Serial.println(F("BME680 async test"));
+  if (!bme.begin()) {
+    //Serial.println(F("Could not find a valid BME680 sensor, check wiring!"));
+    //while (1);
+  }*/
   // Set up oversampling and filter initialization
   bme.setTemperatureOversampling(BME680_OS_8X);
   bme.setHumidityOversampling(BME680_OS_2X);
@@ -566,36 +661,50 @@ void setup()
   lcd.setCursor(0, 1);
   lcd.print(" Espere calibracion");
   delay(2000);
+//------------------------------------------------------------------------------------------------------------CALIB_MICS5524(); //3 mins:(
   Wire.begin();
   lcd.clear();
   lcd.setCursor(0, 1);
   lcd.print(" Autocalibracion ok");
   delay(2000);
-
-  // Mostrar la configuración final en la LCD y aplicar LED
-  lcd.clear();
-  lcd.setCursor(1, 0);
-  lcd.print("Config Aplicada:");
-  lcd.setCursor(1, 1);
-  lcd.print("WiFi: ");
-  lcd.print(adq == 1 ? "SI" : "NO");
-  lcd.setCursor(1, 2);
-  lcd.print("Modo: ");
-  lcd.print(g == 0 ? "ESTACION" : "EXPERIMENTO");
+  in_experimento_mode();
+  pinMode(pulsadorPin, INPUT_PULLUP); 
+  valorPulsador = digitalRead(pulsadorPin);  // Lectura digital de pulsadorPin
   
-  actualizarLedModo();
-  delay(3000);
-
-  //-----------------------------se crea el archivo en la SD con el nombre de FECHA_HORA.txt
-  if (adq == 1) 
-  {
-    strcpy(modoOperacion, "Escuela_");
-    if (g == 0) {
-      strcat(submodoOperacion, "Estacion");
-    } else {
-      strcat(submodoOperacion, "Experimento");
-    }
+  if(valorPulsador==HIGH){valorPulsador=1;}
+  else{valorPulsador=0;}
+  
+  if (valorPulsador == 1) 
+  {   
+ //  Serial.println("MODO EXPERIMENTO");
+   lcd.clear();
+   lcd.setCursor(2, 1);
+   lcd.print("Modo EXPERIMENTO");
+   delay(2000); 
+   lcd.clear();
+   g=1;
   } 
+  else
+  {   
+  // Serial.println("MODO ESTACION");
+   lcd.clear();
+   lcd.setCursor(2, 1);
+   lcd.print(" Modo ESTACION");
+   delay(2000); 
+   lcd.clear();
+   g=0;
+  }
+  
+//-----------------------------se crea el archivo en la SD con el nombre de FECHA_HORA.txt
+   if (adq == 1) 
+   {
+      strcpy(modoOperacion, "Escuela_");
+      if (g == 0) {
+        strcat(submodoOperacion, "Estacion");
+      } else {
+        strcat(submodoOperacion, "Experimento");
+      }
+   } 
   else 
   {
     strcpy(modoOperacion, "Terreno_");
@@ -608,8 +717,7 @@ void setup()
       strcat(submodoOperacion, "Experimento");
     }
   }
-
-  // Inicializar la SD
+   // Inicializar la SD
   if (!SD.begin(CS_PIN)) {
     //Serial.println("Error, SD Initialization Failed");
     sdPresent = false;

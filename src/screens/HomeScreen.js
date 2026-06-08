@@ -43,6 +43,24 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
   const fetchBluetoothDevices = async () => {
     try {
       console.log("Home: Obteniendo dispositivos BLE conectados...");
+
+      // Esperar a que el adaptador Bluetooth esté listo (PoweredOn) para evitar el error de estado "unknown"
+      const currentState = await manager.state();
+      if (currentState !== 'PoweredOn') {
+        console.log(`Home: Bluetooth está en estado '${currentState}'. Esperando a que se active...`);
+        await new Promise((resolve, reject) => {
+          const subscription = manager.onStateChange((state) => {
+            if (state === 'PoweredOn') {
+              subscription.remove();
+              resolve();
+            } else if (state === 'PoweredOff' || state === 'Unauthorized') {
+              subscription.remove();
+              reject(new Error(`El Bluetooth no está disponible (Estado: ${state})`));
+            }
+          }, true);
+        });
+      }
+
       // 1. Dispositivos ya conectados por nuestra app
       const connected = await manager.connectedDevices([SERVICE_UUID]);
       const mappedConnected = connected.map(device => {
@@ -95,7 +113,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      
+
       {/* HEADER */}
       <View style={{ paddingTop: 60, paddingHorizontal: 24, marginBottom: 24 }}>
         <Text style={{ fontSize: 26, fontWeight: '900', color: '#1e293b', fontStyle: 'italic' }}>
@@ -140,7 +158,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
             <Text style={{ fontSize: 13, color: '#0f172a', fontWeight: '700', letterSpacing: 0.3 }}>
               ESTACIONES VINCULADAS
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={onNavigateToNewEma}
               style={{
                 width: 44,
@@ -161,7 +179,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => onSelectDevice && onSelectDevice(item)}
             style={{
               backgroundColor: '#ffffff',
@@ -212,7 +230,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
           </Text>
         }
         ListFooterComponent={
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={onNavigateToNewEma}
             style={{
               borderWidth: 1.5,

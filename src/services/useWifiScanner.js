@@ -32,6 +32,8 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
     const startTime = Date.now(); 
 
     try {
+      let wifiList = [];
+
       if (Platform.OS === 'android') {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
@@ -39,9 +41,11 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
           throw new Error('Se requiere el permiso de ubicación para escanear redes Wi-Fi.');
         }
+        wifiList = await WifiReborn.reScanAndLoadWifiList();
+      } else {
+        console.log("iOS: El escaneo de redes Wi-Fi no es compatible por restricciones de Apple.");
+        wifiList = [];
       }
-
-      const wifiList = await WifiReborn.reScanAndLoadWifiList();
       
       if (!wifiList || !Array.isArray(wifiList)) {
         console.log("Hardware saturado o respuesta inválida. Inicializando arreglo vacío.");

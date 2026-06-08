@@ -8,6 +8,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [sending, setSending] = useState(false);
+  const [isManualSsid, setIsManualSsid] = useState(false);
 
   // Instancia para controlar la animación de rotación
   const spinValue = new Animated.Value(0);
@@ -32,6 +33,10 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
   });
 
   const handleSubmit = async () => {
+    if (!selectedSsid.trim()) {
+      Alert.alert('Atención', 'Por favor, ingresa el nombre de la red (SSID).');
+      return;
+    }
     if (!password.trim()) {
       Alert.alert('Atención', 'Por favor, ingresa la contraseña de la red.');
       return;
@@ -51,6 +56,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
     if (sending) return; // Bloquear si se están enviando datos por BT
     if (viewState === 'input') {
       setViewState('list');
+      setIsManualSsid(false);
     } else {
       onBack();
     }
@@ -105,6 +111,32 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
               <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '800', letterSpacing: 1, marginBottom: 24 }}>
                 REDES AL ALCANCE DEL TELÉFONO
               </Text>
+
+              {/* Botón para ingreso manual (Útil en iOS o redes ocultas) */}
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedSsid('');
+                  setIsManualSsid(true);
+                  setViewState('input');
+                }}
+                style={{
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 32,
+                  padding: 20,
+                  marginBottom: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1.5,
+                  borderColor: '#cbd5e1',
+                  borderStyle: 'dashed',
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#3b82f6' }}>
+                  ➕ INGRESO MANUAL DE RED (SSID)
+                </Text>
+              </TouchableOpacity>
+
               <FlatList
                 data={networks || []}
                 keyExtractor={(item) => item.id}
@@ -112,6 +144,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   <TouchableOpacity 
                     onPress={() => {
                       setSelectedSsid(item.ssid);
+                      setIsManualSsid(false);
                       setViewState('input');
                     }}
                     style={{
@@ -134,9 +167,26 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
-                  <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 15 }}>
-                    No se detectaron redes Wi-Fi activas a tu alrededor.
-                  </Text>
+                  <View style={{ alignItems: 'center', marginTop: 40 }}>
+                    <Text style={{ textAlign: 'center', color: '#64748b', marginBottom: 20, fontSize: 15 }}>
+                      No se detectaron redes Wi-Fi activas a tu alrededor (el escaneo de redes no es compatible en iOS).
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedSsid('');
+                        setIsManualSsid(true);
+                        setViewState('input');
+                      }}
+                      style={{
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 24,
+                        paddingVertical: 14,
+                        paddingHorizontal: 28,
+                      }}
+                    >
+                      <Text style={{ color: 'white', fontWeight: '900', letterSpacing: 0.5 }}>INGRESAR RED MANUALMENTE</Text>
+                    </TouchableOpacity>
+                  </View>
                 }
               />
             </View>
@@ -148,9 +198,34 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
               <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>
                 CONECTANDO A
               </Text>
-              <Text style={{ fontSize: 32, fontWeight: '900', color: '#0f172a', fontStyle: 'italic', marginBottom: 40 }}>
-                {selectedSsid}
-              </Text>
+              
+              {isManualSsid ? (
+                <View style={{
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 24,
+                  paddingHorizontal: 20,
+                  height: 70,
+                  marginBottom: 30,
+                  justifyContent: 'center',
+                  borderWidth: 1.5,
+                  borderColor: '#e2e8f0',
+                }}>
+                  <TextInput
+                    style={{ fontSize: 18, fontWeight: '700', color: '#0f172a' }}
+                    placeholder="Nombre de la Red (SSID)"
+                    placeholderTextColor="#cbd5e1"
+                    value={selectedSsid}
+                    onChangeText={setSelectedSsid}
+                    editable={!sending}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              ) : (
+                <Text style={{ fontSize: 32, fontWeight: '900', color: '#0f172a', fontStyle: 'italic', marginBottom: 40 }}>
+                  {selectedSsid}
+                </Text>
+              )}
 
               <View style={{
                 backgroundColor: '#f8fafc',
@@ -159,7 +234,9 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                 alignItems: 'center',
                 paddingHorizontal: 20,
                 height: 70,
-                marginBottom: 30
+                marginBottom: 30,
+                borderWidth: isManualSsid ? 0 : 1.5,
+                borderColor: '#e2e8f0',
               }}>
                 <TextInput
                   style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#0f172a' }}
@@ -169,6 +246,8 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   value={password}
                   onChangeText={setPassword}
                   editable={!sending}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={sending}>
                   <Text style={{ fontSize: 20 }}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>

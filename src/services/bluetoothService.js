@@ -18,16 +18,16 @@ export const encodeBase64 = (str) => {
     const c1 = str.charCodeAt(i++) || 0;
     const c2 = str.charCodeAt(i++) || 0;
     const c3 = str.charCodeAt(i++) || 0;
-    
+
     const byte1 = c1 >> 2;
     const byte2 = ((c1 & 3) << 4) | (c2 >> 4);
     const byte3 = ((c2 & 15) << 2) | (c3 >> 6);
     const byte4 = c3 & 63;
-    
-    result += base64Chars.charAt(byte1) + 
-              base64Chars.charAt(byte2) + 
-              (i - 2 < str.length ? base64Chars.charAt(byte3) : '=') + 
-              (i - 1 < str.length ? base64Chars.charAt(byte4) : '=');
+
+    result += base64Chars.charAt(byte1) +
+      base64Chars.charAt(byte2) +
+      (i - 2 < str.length ? base64Chars.charAt(byte3) : '=') +
+      (i - 1 < str.length ? base64Chars.charAt(byte4) : '=');
   }
   return result;
 };
@@ -42,11 +42,11 @@ export const decodeBase64 = (base64) => {
     const byte2 = base64Chars.indexOf(cleanBase64.charAt(i++));
     const byte3 = base64Chars.indexOf(cleanBase64.charAt(i++));
     const byte4 = base64Chars.indexOf(cleanBase64.charAt(i++));
-    
+
     const c1 = (byte1 << 2) | (byte2 >> 4);
     const c2 = ((byte2 & 15) << 4) | (byte3 >> 2);
     const c3 = ((byte3 & 3) << 6) | byte4;
-    
+
     result += String.fromCharCode(c1);
     if (byte3 !== 64 && cleanBase64.charAt(i - 2) !== '=') {
       result += String.fromCharCode(c2);
@@ -93,7 +93,7 @@ export const connectToDevice = async (device) => {
   try {
     const connectedDevice = await manager.connectToDevice(deviceId);
     console.log(`BLE: ¡Conectado exitosamente a ${connectedDevice.name || connectedDevice.id}!`);
-    
+
     // Solicitar MTU de 512 bytes para evitar el truncamiento del JSON de telemetría en Android
     try {
       console.log("BLE: Solicitando MTU de 512 bytes...");
@@ -124,7 +124,7 @@ export const sendWifiCredentials = async (device, ssid, password) => {
   const payload = `WIFI:${ssid}|${password}`;
   const base64Data = encodeBase64(payload);
   console.log(`BLE: Enviando credenciales Wi-Fi: ${ssid}, [PASSWORD OCULTO]`);
-  
+
   try {
     // Intentar verificar conexión antes de escribir
     const isConnected = await device.isConnected();
@@ -154,11 +154,11 @@ export const changeOperatingMode = async (device, modeCode) => {
   if (!device) {
     throw new Error('No hay ningún dispositivo MICA conectado por BLE.');
   }
-  
+
   const payload = `MODE:${modeCode}`;
   const base64Data = encodeBase64(payload);
   console.log(`BLE: Enviando cambio de modo: MODE:${modeCode}`);
-  
+
   try {
     const isConnected = await device.isConnected();
     let activeDevice = device;
@@ -252,7 +252,7 @@ export const sendStartCommand = async (device) => {
 export const subscribeToMicaData = (device, onDataReceived, onError) => {
   if (!device) return null;
   console.log("BLE: Suscribiendo listener para telemetría en tiempo real...");
-  
+
   return device.monitorCharacteristicForService(
     SERVICE_UUID,
     DATA_CHAR_UUID,

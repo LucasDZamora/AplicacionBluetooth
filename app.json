@@ -19,7 +19,9 @@
         "UIBackgroundModes": [
           "bluetooth-central",
           "fetch"
-        ]
+        ],
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceder al Bluetooth para escanear y conectarse a tus estaciones MICA.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicación requiere permisos de Bluetooth para comunicarse con periféricos cercanos."
       }
     },
     "android": {
