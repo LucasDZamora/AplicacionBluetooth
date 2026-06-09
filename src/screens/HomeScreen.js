@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Dimensions, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, Dimensions, Alert, Image } from 'react-native';
 import { manager, SERVICE_UUID, scanForDevices, stopScanning } from '../services/bluetoothService';
 import { requestBluetoothPermissions } from '../services/permissions'; // Importamos tu servicio de permisos
+import logoMica from '../../assets/logo_01_mica.png';
 
 const { width } = Dimensions.get('window');
 
@@ -98,6 +99,17 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
       
       {/* HEADER */}
       <View style={{ paddingTop: 60, paddingHorizontal: 24, marginBottom: 24 }}>
+
+        <Image 
+          source={logoMica} 
+          style={{ 
+            width: 140, 
+            height: 38, 
+            resizeMode: 'contain', 
+            alignSelf: 'center' // <--- Esto lo centra perfectamente en el eje horizontal
+          }} 
+        />
+
         <Text style={{ fontSize: 26, fontWeight: '900', color: '#1e293b', fontStyle: 'italic' }}>
           MIS ESTACIONES <Text style={{ color: '#3b82f6' }}>EMA</Text>
         </Text>
@@ -121,6 +133,10 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
           shadowRadius: 15,
           elevation: 8,
         }}>
+
+        
+
+
           <Text style={{ color: 'white', fontSize: 32, fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.5, marginBottom: 10 }}>
             BIENVENIDO
           </Text>

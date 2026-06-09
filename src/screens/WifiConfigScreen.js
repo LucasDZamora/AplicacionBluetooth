@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Animated, Alert } from 'react-native';
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 
 export default function WifiConfigScreen({ onBack, onConnectAction, networks, isLoadingNetworks }) {
-  // 'list' maneja las redes encontradas, 'input' el formulario de la clave
   const [viewState, setViewState] = useState('list'); 
   const [selectedSsid, setSelectedSsid] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [sending, setSending] = useState(false);
 
-  // Instancia para controlar la animación de rotación
   const spinValue = new Animated.Value(0);
 
-  // CONTROL ÚNICO DEL SPINNER: Gira obedeciendo el estado del App.js
   useEffect(() => {
     if (isLoadingNetworks) {
       Animated.loop(
@@ -25,7 +23,6 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
     }
   }, [isLoadingNetworks]);
 
-  // Interpolación matemática limpia para evitar errores en el parseador de Babel
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -48,7 +45,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
   };
 
   const handleBack = () => {
-    if (sending) return; // Bloquear si se están enviando datos por BT
+    if (sending) return;
     if (viewState === 'input') {
       setViewState('list');
     } else {
@@ -77,33 +74,31 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
             opacity: sending ? 0.5 : 1
           }}
         >
-          <Text style={{ fontSize: 18, color: '#1e293b', fontWeight: 'bold' }}>←</Text>
+          <Feather name="chevron-left" size={24} color="#1e293b" />
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: '900', color: '#0f172a', fontStyle: 'italic', textTransform: 'uppercase' }}>
           Configurar WIFI
         </Text>
       </View>
 
-      {/* RENDERIZADO DEPENDIENTE DE LA CARGA DE MAESTRA */}
       {isLoadingNetworks ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 100 }}>
           <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '800', letterSpacing: 1, marginBottom: 40, position: 'absolute', top: 0, alignSelf: 'flex-start' }}>
             REDES DISPONIBLES
           </Text>
-          <Animated.Text style={{ fontSize: 60, color: '#3b82f6', transform: [{ rotate: spin }] }}>
-            ↻
-          </Animated.Text>
+          <Animated.View style={{ transform: [{ rotate: spin }] }}>
+            <MaterialCommunityIcons name="loading" size={60} color="#3b82f6" />
+          </Animated.View>
           <Text style={{ fontSize: 14, fontWeight: '900', color: '#94a3b8', marginTop: 24, letterSpacing: 1 }}>
-            BUSCANDO REDES DESDE EL CELULAR...
+            BUSCANDO REDES...
           </Text>
         </View>
       ) : (
         <>
-          {/* VISTA A: LISTADO DE REDES DISPONIBLES */}
           {viewState === 'list' && (
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '800', letterSpacing: 1, marginBottom: 24 }}>
-                REDES AL ALCANCE DEL TELÉFONO
+                REDES AL ALCANCE
               </Text>
               <FlatList
                 data={networks || []}
@@ -126,23 +121,22 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#ffffff', justifyContent: 'center', alignItems: 'center', marginRight: 16 }}>
-                        <Text style={{ fontSize: 22 }}>📶</Text>
+                        <MaterialCommunityIcons name="wifi" size={26} color="#3b82f6" />
                       </View>
                       <Text style={{ fontSize: 17, fontWeight: '700', color: '#0f172a' }}>{item.ssid}</Text>
                     </View>
-                    {item.secured && <Text style={{ color: '#cbd5e1', fontSize: 18 }}>🔒</Text>}
+                    {item.secured && <MaterialCommunityIcons name="lock" size={20} color="#cbd5e1" />}
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
                   <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 15 }}>
-                    No se detectaron redes Wi-Fi activas a tu alrededor.
+                    No se detectaron redes Wi-Fi.
                   </Text>
                 }
               />
             </View>
           )}
 
-          {/* VISTA B: FORMULARIO DE CREDENCIALES */}
           {viewState === 'input' && (
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>
@@ -171,7 +165,11 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   editable={!sending}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} disabled={sending}>
-                  <Text style={{ fontSize: 20 }}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  <MaterialCommunityIcons 
+                    name={showPassword ? "eye" : "eye-off"} 
+                    size={24} 
+                    color="#64748b" 
+                  />
                 </TouchableOpacity>
               </View>
 
@@ -190,7 +188,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <Text style={{ color: 'white', fontSize: 14, fontWeight: '900', letterSpacing: 1 }}>
-                    ENVIAR CREDENCIALES AL MICA
+                    ENVIAR CREDENCIALES
                   </Text>
                 )}
               </TouchableOpacity>
