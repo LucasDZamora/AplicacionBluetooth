@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "AplicacionBluetooth",
-    "slug": "AplicacionBluetooth",
+    "name": "EMAPP",
+    "slug": "EMAPP",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/LogoAPP.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/LogoAPP.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -23,11 +23,11 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/LogoAPP.png",
         "backgroundColor": "#ffffff"
       },
       "notification": {
-        "icon": "./assets/icon.png",
+        "icon": "./assets/LogoAPP.png",
         "color": "#3b82f6"
       },
       "edgeToEdgeEnabled": true,
@@ -46,7 +46,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/LogoAPP.png"
     },
     "plugins": [
       "expo-status-bar",

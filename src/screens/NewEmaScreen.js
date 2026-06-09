@@ -1,9 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { scanForDevices, stopScanning, connectToDevice } from '../services/bluetoothService';
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+
+const getSignalPercentage = (rssi) => {
+  if (!rssi) return 0;
+  if (rssi >= -40) return 100;
+  if (rssi <= -100) return 0;
+  return Math.round(((rssi - (-100)) / (-40 - (-100))) * 100);
+};
+
+const getSignalIconConfig = (percentage) => {
+  if (percentage <= 30) {
+    return { icon: "signal-cellular-1", color: "#ef4444" };
+  } else if (percentage <= 70) {
+    return { icon: "signal-cellular-2", color: "#f59e0b" };
+  } else {
+    return { icon: "signal-cellular-3", color: "#10b981" };
+  }
+};
 
 export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
-  const [scanState, setScanState] = useState('idle'); // 'idle', 'scanning', 'results'
+  const [scanState, setScanState] = useState('idle');
   const [devices, setDevices] = useState([]);
   const [connectingId, setConnectingId] = useState(null);
   const fadeAnim = useRef(new Animated.Value(0.3)).current;
@@ -11,7 +29,6 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
 
   useEffect(() => {
     if (scanState === 'scanning') {
-      // Animación intermitente/bucle mientras se escanea
       Animated.loop(
         Animated.sequence([
           Animated.timing(fadeAnim, { toValue: 0.8, duration: 1000, useNativeDriver: true }),
@@ -54,7 +71,6 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
         }
       );
 
-      // Finalizar escaneo automáticamente después de 6 segundos
       scanTimeoutRef.current = setTimeout(() => {
         console.log("App: Escaneo finalizado automáticamente.");
         stopScanning();
@@ -77,7 +93,6 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
       if (connectedDevice) {
         console.log("App: ¡Conectado a MICA por BLE exitosamente! (ID: " + connectedDevice.id + ")");
         
-        // Mapeamos el dispositivo al formato de la interfaz visual
         const name = connectedDevice.name || 'Estación MICA';
         const mappedDevice = {
           id: connectedDevice.id,
@@ -87,7 +102,6 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
           rawDevice: connectedDevice
         };
 
-        // Redirige automáticamente a la pantalla de configuración de Wi-Fi
         onConnectionSuccess(mappedDevice);
       }
     } catch (err) {
@@ -109,7 +123,6 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }}>
       
-      {/* HEADER */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 40 }}>
         <TouchableOpacity 
           onPress={handleBack}
@@ -125,19 +138,26 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             marginRight: 16
           }}
         >
-          <Text style={{ fontSize: 18, color: '#1e293b', fontWeight: 'bold' }}>←</Text>
+          <Feather 
+            name="chevron-left" 
+            size={24} 
+            color="#1e293b" 
+          />
         </TouchableOpacity>
         <Text style={{ fontSize: 22, fontWeight: '900', color: '#0f172a', fontStyle: 'italic' }}>
           NUEVA EMA
         </Text>
       </View>
 
-      {/* ESTADO INICIAL (IDLE) */}
       {scanState === 'idle' && (
         <>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 100 }}>
             <View style={{ width: 180, height: 180, borderRadius: 48, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 40 }}>
-              <Text style={{ fontSize: 80, color: '#3b82f6', fontWeight: '300' }}>ᛒ</Text>
+              <MaterialCommunityIcons 
+                name="bluetooth" 
+                size={90}       
+                color="#3b82f6" 
+              />
             </View>
             <Text style={{ fontSize: 24, fontWeight: '900', color: '#0f172a', fontStyle: 'italic', marginBottom: 16 }}>
               BÚSQUEDA BLUETOOTH
@@ -158,11 +178,10 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
         </>
       )}
 
-      {/* ESTADO ESCANEANDO (SCANNING) */}
       {scanState === 'scanning' && (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 160 }}>
           <Animated.View style={{ width: 180, height: 180, borderRadius: 48, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 40, opacity: fadeAnim }}>
-            <Text style={{ fontSize: 80, color: '#3b82f6', fontWeight: '300' }}>ᛒ</Text>
+            <MaterialCommunityIcons name="bluetooth-transfer" size={90} color="#3b82f6" />
           </Animated.View>
           <Text style={{ fontSize: 16, fontWeight: '700', color: '#64748b', letterSpacing: 0.8, textTransform: 'uppercase' }}>
             ESCANEANDO DISPOSITIVOS...
@@ -170,7 +189,6 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
         </View>
       )}
 
-      {/* ESTADO RESULTADOS (RESULTS) */}
       {scanState === 'results' && (
         <FlatList
           data={devices || []}
@@ -199,7 +217,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#3b82f6', justifyContent: 'center', alignItems: 'center', marginRight: 16 }}>
-                  <Text style={{ color: 'white', fontSize: 24 }}>ᛒ</Text>
+                  <MaterialCommunityIcons name="bluetooth" size={26} color="white" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 16, fontWeight: '700', color: '#0f172a' }}>{item.name || 'Dispositivo desconocido'}</Text>
@@ -211,10 +229,27 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
                 {connectingId === item.id ? (
                   <ActivityIndicator size="small" color="#3b82f6" />
                 ) : (
-                  <>
-                    <Text style={{ color: '#10b981', fontSize: 16, marginRight: 6 }}>📶</Text>
-                    <Text style={{ fontSize: 13, color: '#10b981', fontWeight: '700' }}>100%</Text>
-                  </>
+                  (() => {
+                    const hasSignal = item.rssi !== undefined && item.rssi !== null;
+                    const percentage = hasSignal ? getSignalPercentage(item.rssi) : 0;
+                    const config = hasSignal 
+                      ? getSignalIconConfig(percentage)
+                      : { icon: "signal-cellular-outline", color: "#94a3b8" };
+
+                    return (
+                      <>
+                        <MaterialCommunityIcons 
+                          name={config.icon} 
+                          size={18} 
+                          color={config.color} 
+                          style={{ marginRight: 6 }} 
+                        />
+                        <Text style={{ fontSize: 13, color: config.color, fontWeight: '700' }}>
+                          {hasSignal ? `${percentage}%` : '--'}
+                        </Text>
+                      </>
+                    );
+                  })()
                 )}
               </View>
             </TouchableOpacity>
