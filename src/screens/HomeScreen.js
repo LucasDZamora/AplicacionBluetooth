@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, FlatList, Dimensions, Alert, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { manager, SERVICE_UUID, scanForDevices, stopScanning } from '../services/bluetoothService';
 import { requestBluetoothPermissions } from '../services/permissions'; // Importamos tu servicio de permisos
 import logoMica from '../../assets/logo_01_mica.png';
@@ -9,12 +10,16 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelectDevice, onTestBackgroundService }) {
   const [devices, setDevices] = useState([]);
   const [hasPermissions, setHasPermissions] = useState(false);
+  const scanTimeoutRef = useRef(null);
 
   // 1. Solicitar permisos al montar el Home por primera vez
   useEffect(() => {
     checkAndRequestPermissions();
     return () => {
       stopScanning(); // Limpieza al desmontar
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -44,40 +49,55 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
   const fetchBluetoothDevices = async () => {
     try {
       console.log("Home: Obteniendo dispositivos BLE conectados...");
-      // 1. Dispositivos ya conectados por nuestra app
+      
+      // Detener cualquier escaneo previo y limpiar timeout
+      stopScanning();
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
+      
+      // Obtener la lista de dispositivos vinculados desde AsyncStorage
+      const stored = await AsyncStorage.getItem('LINKED_DEVICES');
+      const linkedIds = stored ? JSON.parse(stored) : [];
+      
+      // 1. Dispositivos ya conectados por nuestra app (filtrados por vinculación)
       const connected = await manager.connectedDevices([SERVICE_UUID]);
-      const mappedConnected = connected.map(device => {
-        const name = device.name || 'Estación MICA';
-        return {
-          id: device.id,
-          name: name,
-          type: 'MICA (Conectada)',
-          initial: name.charAt(0).toUpperCase(),
-          battery: null,
-          rawDevice: device
-        };
-      });
+      const mappedConnected = connected
+        .filter(device => linkedIds.includes(device.id))
+        .map(device => {
+          const name = device.name || 'Estación MICA';
+          return {
+            id: device.id,
+            name: name,
+            type: 'MICA (Conectada)',
+            initial: name.charAt(0).toUpperCase(),
+            battery: null,
+            rawDevice: device
+          };
+        });
 
       setDevices(mappedConnected);
 
-      // 2. Escanear por 3 segundos para descubrir otros MICA cercanos activos
+      // 2. Escanear por 3 segundos para descubrir otros MICA cercanos activos (filtrados por vinculación)
       scanForDevices(
         (device) => {
-          setDevices(prev => {
-            if (prev.some(d => d.id === device.id)) return prev;
-            const name = device.name || 'Estación MICA';
-            return [
-              ...prev,
-              {
-                id: device.id,
-                name: name,
-                type: 'MICA (BLE)',
-                initial: name.charAt(0).toUpperCase(),
-                battery: null,
-                rawDevice: device
-              }
-            ];
-          });
+          if (linkedIds.includes(device.id)) {
+            setDevices(prev => {
+              if (prev.some(d => d.id === device.id)) return prev;
+              const name = device.name || 'Estación MICA';
+              return [
+                ...prev,
+                {
+                  id: device.id,
+                  name: name,
+                  type: 'MICA (BLE)',
+                  initial: name.charAt(0).toUpperCase(),
+                  battery: null,
+                  rawDevice: device
+                }
+              ];
+            });
+          }
         },
         (error) => {
           console.log("Home: Error no crítico escaneando:", error.message);
@@ -85,12 +105,73 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
       );
 
       // Detener escaneo tras 3 segundos
-      setTimeout(() => {
+      scanTimeoutRef.current = setTimeout(() => {
         stopScanning();
       }, 3000);
 
     } catch (e) {
       console.error("Error cargando dispositivos en Home:", e);
+    }
+  };
+
+  const handleForgetPrompt = (item) => {
+    Alert.alert(
+      'Olvidar Estación',
+      `¿Estás seguro de que deseas olvidar la estación "${item.name}"? Se cerrará la conexión Bluetooth y se eliminarán de forma segura las credenciales y registros guardados localmente en el móvil.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Olvidar', 
+          style: 'destructive', 
+          onPress: () => handleForgetDevice(item) 
+        }
+      ]
+    );
+  };
+
+  const handleForgetDevice = async (item) => {
+    try {
+      console.log(`Home: Olvidando estación ${item.name} (${item.id})...`);
+      
+      // 0. Detener cualquier escaneo activo inmediatamente
+      stopScanning();
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
+
+      // 1. Cancelar la conexión BLE de forma activa
+      try {
+        await manager.cancelDeviceConnection(item.id);
+        console.log("Home: Conexión BLE cerrada para la estación.");
+      } catch (bleErr) {
+        console.log("Home: La estación ya estaba desconectada o no se pudo cerrar:", bleErr.message);
+      }
+
+      // 2. Eliminar el dispositivo de LINKED_DEVICES en AsyncStorage
+      const stored = await AsyncStorage.getItem('LINKED_DEVICES');
+      if (stored) {
+        let linkedIds = JSON.parse(stored);
+        linkedIds = linkedIds.filter(id => id !== item.id);
+        await AsyncStorage.setItem('LINKED_DEVICES', JSON.stringify(linkedIds));
+        console.log("Home: Estación eliminada de LINKED_DEVICES en AsyncStorage.");
+      }
+
+      // 3. Quitar el dispositivo inmediatamente del estado local
+      setDevices(prev => prev.filter(d => d.id !== item.id));
+
+      Alert.alert(
+        'Estación Olvidada',
+        `La estación "${item.name}" ha sido olvidada con éxito. Sus credenciales y registros locales han sido eliminados.`
+      );
+
+      // 4. Esperar un breve momento y refrescar para sincronizar
+      setTimeout(() => {
+        fetchBluetoothDevices();
+      }, 500);
+
+    } catch (error) {
+      console.error("Home: Error al olvidar la estación:", error);
+      Alert.alert('Error', 'No se pudo olvidar la estación correctamente.');
     }
   };
 
@@ -177,8 +258,7 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity 
-            onPress={() => onSelectDevice && onSelectDevice(item)}
+          <View 
             style={{
               backgroundColor: '#ffffff',
               borderRadius: 24,
@@ -196,7 +276,10 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
               elevation: 2,
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <TouchableOpacity 
+              onPress={() => onSelectDevice && onSelectDevice(item)}
+              style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+            >
               <View style={{
                 width: 52,
                 height: 52,
@@ -215,12 +298,15 @@ export default function HomeScreen({ onNavigateToNewEma, activeTrigger, onSelect
                   {item.type}  •  {item.id}
                 </Text>
               </View>
-            </View>
-
-            <TouchableOpacity style={{ padding: 8 }}>
-              <Text style={{ fontSize: 18, color: '#0f172a', fontWeight: '900' }}>•••</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={() => handleForgetPrompt(item)}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ fontSize: 18, color: '#64748b', fontWeight: '900' }}>•••</Text>
+            </TouchableOpacity>
+          </View>
         )}
         ListEmptyComponent={
           <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 30, fontSize: 14, paddingHorizontal: 16, lineHeight: 20 }}>

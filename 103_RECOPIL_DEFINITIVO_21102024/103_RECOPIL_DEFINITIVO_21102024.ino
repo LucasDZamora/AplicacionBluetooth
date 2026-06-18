@@ -146,6 +146,9 @@ extern bool wifiCredentialsReceived;
 extern String receivedSSID;
 extern String receivedPASS;
 extern bool bleDeviceConnected;
+extern bool hasSecondaryWifi;
+extern String receivedSSID2;
+extern String receivedPASS2;
 
 char ssid1[32] = {0};
 char password1[32] = {0};
@@ -232,8 +235,8 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 #include <HTTPClient.h>
 WiFiClient client;
 
-const char* serverName = "http://......php"; //acá va la ruta del servidor
-String apiKeyValue = ""; //acá va la clave
+const char* serverName = "http://192.168.1.84:8000/api_mica.php"; // REEMPLAZAR con la IP del servidor de XAMPP, por ejemplo http://192.168.1.100/sistema_mica/public/api_mica.php
+String apiKeyValue = "tPmAT5Ab3j7F9"; //acá va la clave
 String httpRequestData;
 String CADENA;
 boolean conwifi = false;
@@ -416,7 +419,8 @@ void setup()
     pixels.show();   // Mandamos todos los colores con la actualización hecha
     delay(DELAYVAL);
     } 
-        // Iniciar BLE para recibir configuración
+      
+  // Iniciar BLE para recibir configuración
   inicializarBLE();
   
   // Feedback visual LED: AZUL esperando config
@@ -521,7 +525,15 @@ void setup()
       // Si se conectó usando las credenciales recién recibidas por BLE, guardarlas en EEPROM
       if (wifiCredentialsReceived && receivedSSID.length() > 0) 
       {
-        if (strcmp(ssid1, receivedSSID.c_str()) != 0) 
+        if (hasSecondaryWifi) 
+        {
+          strncpy(ssid2, receivedSSID2.c_str(), 32);
+          strncpy(password2, receivedPASS2.c_str(), 32);
+          EEPROM.begin(EEPROM_SIZE);
+          EEPROM.put(64, ssid2);
+          EEPROM.put(96, password2);
+        }
+        else if (strcmp(ssid1, receivedSSID.c_str()) != 0) 
         {
           strncpy(ssid2, ssid1, 32);
           strncpy(password2, password1, 32);

@@ -7,6 +7,10 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
   const [selectedSsid, setSelectedSsid] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [ssid2, setSsid2] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [showPassword2, setShowPassword2] = useState(false);
+  const [showBackupWifi, setShowBackupWifi] = useState(false);
   const [sending, setSending] = useState(false);
 
   const spinValue = new Animated.Value(0);
@@ -36,7 +40,9 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
     
     setSending(true);
     try {
-      await onConnectAction(selectedSsid, password);
+      const backupSsid = showBackupWifi ? ssid2 : '';
+      const backupPass = showBackupWifi ? password2 : '';
+      await onConnectAction(selectedSsid, password, backupSsid, backupPass);
     } catch (error) {
       Alert.alert('Error de transmisión', error.message);
     } finally {
@@ -172,6 +178,85 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   />
                 </TouchableOpacity>
               </View>
+
+              {/* WIFI RESPALDO OPCIONAL */}
+              <TouchableOpacity
+                onPress={() => setShowBackupWifi(!showBackupWifi)}
+                disabled={sending}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginTop: -10,
+                  marginBottom: 20,
+                  padding: 14,
+                  backgroundColor: showBackupWifi ? '#eff6ff' : '#f8fafc',
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: showBackupWifi ? '#3b82f6' : '#e2e8f0'
+                }}
+              >
+                <MaterialCommunityIcons 
+                  name={showBackupWifi ? "checkbox-marked" : "checkbox-blank-outline"} 
+                  size={22} 
+                  color={showBackupWifi ? "#3b82f6" : "#64748b"} 
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: showBackupWifi ? '#1e40af' : '#475569' }}>
+                  Configurar red WiFi secundaria (Opcional)
+                </Text>
+              </TouchableOpacity>
+
+              {showBackupWifi && (
+                <View style={{ paddingLeft: 8, marginBottom: 24 }}>
+                  <Text style={{ fontSize: 11, color: '#64748b', fontWeight: '800', letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>
+                    Red WiFi Secundaria
+                  </Text>
+                  
+                  <View style={{
+                    backgroundColor: '#f8fafc',
+                    borderRadius: 24,
+                    paddingHorizontal: 20,
+                    height: 60,
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: '#e2e8f0',
+                    marginBottom: 12
+                  }}>
+                    <TextInput
+                      style={{ fontSize: 16, fontWeight: '600', color: '#0f172a' }}
+                      placeholder="SSID de red secundaria (ej: MiWifiDeRespaldo)"
+                      placeholderTextColor="#cbd5e1"
+                      value={ssid2}
+                      onChangeText={setSsid2}
+                      editable={!sending}
+                    />
+                  </View>
+
+                  <View style={{
+                    backgroundColor: '#f8fafc',
+                    borderRadius: 24,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 20,
+                    height: 60,
+                    borderWidth: 1,
+                    borderColor: '#e2e8f0'
+                  }}>
+                    <TextInput
+                      style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#0f172a' }}
+                      placeholder="Contraseña de red secundaria"
+                      placeholderTextColor="#cbd5e1"
+                      secureTextEntry={!showPassword2}
+                      value={password2}
+                      onChangeText={setPassword2}
+                      editable={!sending}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword2(!showPassword2)} disabled={sending}>
+                      <MaterialCommunityIcons name={showPassword2 ? "eye" : "eye-off"} size={22} color="#64748b" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               <TouchableOpacity 
                 onPress={handleSubmit}

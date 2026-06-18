@@ -244,8 +244,8 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
                           color={config.color} 
                           style={{ marginRight: 6 }} 
                         />
-                        <Text style={{ fontSize: 13, color: config.color, fontWeight: '700' }}>
-                          {hasSignal ? `${percentage}%` : '--'}
+                        <Text style={{ fontSize: 12, color: config.color, fontWeight: '700' }}>
+                          {hasSignal ? `Señal: ${percentage}%` : '--'}
                         </Text>
                       </>
                     );

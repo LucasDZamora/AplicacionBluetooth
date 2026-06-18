@@ -52,6 +52,24 @@ export const requestNotificationPermissions = async () => {
       return true;
     }
 
+    if (!current.canAskAgain) {
+      Alert.alert(
+        'Notificaciones desactivadas',
+        'Las alertas del dispositivo requieren permisos de notificación. Por favor actívalas en la configuración de la app.',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+          {
+            text: 'Configuración',
+            onPress: () => Linking.openSettings(),
+          },
+        ]
+      );
+      return false;
+    }
+
     const requested = await Notifications.requestPermissionsAsync();
 
     console.log("Resultado solicitud:", requested);

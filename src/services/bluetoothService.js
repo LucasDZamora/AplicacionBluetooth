@@ -113,7 +113,7 @@ export const connectToDevice = async (device) => {
   }
 };
 
-export const sendWifiCredentials = async (device, ssid, password) => {
+export const sendWifiCredentials = async (device, ssid, password, ssid2 = null, password2 = null) => {
   if (!device) {
     throw new Error('No hay ningún dispositivo MICA conectado por BLE.');
   }
@@ -121,9 +121,12 @@ export const sendWifiCredentials = async (device, ssid, password) => {
     throw new Error('Por favor ingresa la Red y Contraseña');
   }
 
-  const payload = `WIFI:${ssid}|${password}`;
+  let payload = `WIFI:${ssid}|${password}`;
+  if (ssid2 && ssid2.trim()) {
+    payload += `|${ssid2}|${password2 || ''}`;
+  }
   const base64Data = encodeBase64(payload);
-  console.log(`BLE: Enviando credenciales Wi-Fi: ${ssid}, [PASSWORD OCULTO]`);
+  console.log(`BLE: Enviando credenciales Wi-Fi: ${ssid}, [PASSWORD OCULTO]${ssid2 ? ` y de respaldo: ${ssid2}` : ''}`);
   
   try {
     // Intentar verificar conexión antes de escribir

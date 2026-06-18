@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Alert, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import HomeScreen from './src/screens/HomeScreen';
 import NewEmaScreen from './src/screens/NewEmaScreen';
 import DetailsEmaScreen from './src/screens/DetailsEmaScreen';
@@ -206,7 +207,17 @@ export default function App() {
     };
   }, [selectedDevice]);
 
-  const handleBluetoothConnected = (device) => {
+  const handleBluetoothConnected = async (device) => {
+    try {
+      const stored = await AsyncStorage.getItem('LINKED_DEVICES');
+      const list = stored ? JSON.parse(stored) : [];
+      if (!list.includes(device.id)) {
+        list.push(device.id);
+        await AsyncStorage.setItem('LINKED_DEVICES', JSON.stringify(list));
+      }
+    } catch (e) {
+      console.warn("App.js: Error saving linked device ID:", e);
+    }
     setSelectedDevice(device);
     setWifiOrigin('new_ema');
     setCurrentScreen('initial_config');
@@ -248,6 +259,17 @@ export default function App() {
         rawDevice: activeDevice
       };
       
+      try {
+        const stored = await AsyncStorage.getItem('LINKED_DEVICES');
+        const list = stored ? JSON.parse(stored) : [];
+        if (!list.includes(mappedDevice.id)) {
+          list.push(mappedDevice.id);
+          await AsyncStorage.setItem('LINKED_DEVICES', JSON.stringify(list));
+        }
+      } catch (e) {
+        console.warn("App.js: Error saving linked device ID on select:", e);
+      }
+      
       setSelectedDevice(mappedDevice);
       const hasNotificationPerms =
         await requestNotificationPermissions();
@@ -274,11 +296,11 @@ export default function App() {
     }
   };
 
-  const handleWifiConfigured = async (ssid, password) => {
+  const handleWifiConfigured = async (ssid, password, ssid2 = null, password2 = null) => {
     try {
       const rawDeviceInstance = selectedDevice?.rawDevice;
       isExpectingDisconnectRef.current = true;
-      await sendWifiCredentials(rawDeviceInstance, ssid, password);
+      await sendWifiCredentials(rawDeviceInstance, ssid, password, ssid2, password2);
       
       Alert.alert('Éxito', '¡Credenciales de Wi-Fi enviadas correctamente al MICA!');
       setRefreshTrigger(prev => prev + 1);
@@ -328,7 +350,7 @@ export default function App() {
       // 2. Enviar WiFi (credenciales o desactivado)
       if (config.wifiEnabled) {
         isExpectingDisconnectRef.current = true;
-        await sendWifiCredentials(rawDeviceInstance, config.ssid, config.password);
+        await sendWifiCredentials(rawDeviceInstance, config.ssid, config.password, config.ssid2, config.password2);
       } else {
         await changeWifiState(rawDeviceInstance, false); // Enviar WIFI:OFF
       }
