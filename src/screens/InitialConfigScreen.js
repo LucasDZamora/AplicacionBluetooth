@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 
 export default function InitialConfigScreen({ onSendConfig, onBack, networks, isLoadingNetworks }) {
@@ -13,7 +13,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
   const [showPassword2, setShowPassword2] = useState(false);
   const [showBackupWifi, setShowBackupWifi] = useState(false);
   const [sending, setSending] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
+  const [manualMode, setManualMode] = useState(Platform.OS === 'ios');
 
   const handleSend = async () => {
     if (selectedMode === null) {
@@ -214,8 +214,26 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
       {/* CREDENCIALES WIFI (SI SE SELECCIONÓ SÍ) */}
       {wifiEnabled === true && (
         <View style={{ marginBottom: 28 }}>
+          {Platform.OS === 'ios' && (
+            <View style={{
+              backgroundColor: '#fffbeb',
+              borderRadius: 20,
+              padding: 16,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#fef3c7',
+              flexDirection: 'row',
+              alignItems: 'center'
+            }}>
+              <MaterialCommunityIcons name="information" size={24} color="#d97706" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 13, color: '#b45309', fontWeight: '700', flex: 1, lineHeight: 18 }}>
+                Nota: iOS no permite escanear redes Wi-Fi por motivos de seguridad. Por favor, ingresa el nombre de tu red manualmente.
+              </Text>
+            </View>
+          )}
+
           <Text style={{ fontSize: 11, color: '#0f172a', fontWeight: '800', letterSpacing: 0.5, marginBottom: 12, textTransform: 'uppercase' }}>
-            Selecciona una Red WiFi
+            {Platform.OS === 'ios' ? 'Ingresa los datos de tu red WiFi' : 'Selecciona una Red WiFi'}
           </Text>
 
           {isLoadingNetworks ? (
@@ -263,9 +281,11 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
                     );
                   })
                 ) : (
-                  <Text style={{ textAlign: 'center', color: '#94a3b8', padding: 16, fontSize: 14 }}>
-                    No se detectaron redes.
-                  </Text>
+                  Platform.OS === 'ios' ? null : (
+                    <Text style={{ textAlign: 'center', color: '#94a3b8', padding: 16, fontSize: 14 }}>
+                      No se detectaron redes.
+                    </Text>
+                  )
                 )}
 
                 {/* BOTÓN MODO MANUAL */}
@@ -290,7 +310,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
                 >
                   <MaterialCommunityIcons name="plus" size={20} color="#64748b" style={{ marginRight: 10 }} />
                   <Text style={{ fontSize: 14, fontWeight: '700', color: manualMode ? '#3b82f6' : '#64748b' }}>
-                    Ingresar red oculta manualmente
+                    Ingresar red manualmente
                   </Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -311,11 +331,13 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
             }}>
               <TextInput
                 style={{ fontSize: 15, fontWeight: '600', color: '#0f172a' }}
-                placeholder="Nombre de Red Oculta (SSID)"
+                placeholder={Platform.OS === 'ios' ? "Nombre de Red (SSID)" : "Nombre de Red Oculta (SSID)"}
                 placeholderTextColor="#cbd5e1"
                 value={ssid}
                 onChangeText={setSsid}
                 editable={!sending}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
           )}

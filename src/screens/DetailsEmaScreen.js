@@ -239,15 +239,13 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
           />
             <TouchableOpacity 
               onPress={onConfigWifi}
-              disabled={!telemetry?.wifi}
               style={{
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: telemetry?.wifi ? '#f1f5f9' : '#f8fafc',
+                backgroundColor: '#f1f5f9',
                 justifyContent: 'center',
                 alignItems: 'center',
-                opacity: telemetry?.wifi ? 1 : 0.4
               }}
             >
               <Feather 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Animated, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Animated, Alert, Platform } from 'react-native';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 
 export default function WifiConfigScreen({ onBack, onConnectAction, networks, isLoadingNetworks }) {
@@ -12,6 +12,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
   const [showPassword2, setShowPassword2] = useState(false);
   const [showBackupWifi, setShowBackupWifi] = useState(false);
   const [sending, setSending] = useState(false);
+  const [manualMode, setManualMode] = useState(Platform.OS === 'ios');
 
   const spinValue = new Animated.Value(0);
 
@@ -33,6 +34,10 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
   });
 
   const handleSubmit = async () => {
+    if (manualMode && !selectedSsid.trim()) {
+      Alert.alert('Atención', 'Por favor, ingresa el nombre de la red (SSID).');
+      return;
+    }
     if (!password.trim()) {
       Alert.alert('Atención', 'Por favor, ingresa la contraseña de la red.');
       return;
@@ -42,7 +47,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
     try {
       const backupSsid = showBackupWifi ? ssid2 : '';
       const backupPass = showBackupWifi ? password2 : '';
-      await onConnectAction(selectedSsid, password, backupSsid, backupPass);
+      await onConnectAction(selectedSsid.trim(), password, backupSsid, backupPass);
     } catch (error) {
       Alert.alert('Error de transmisión', error.message);
     } finally {
@@ -54,6 +59,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
     if (sending) return;
     if (viewState === 'input') {
       setViewState('list');
+      setManualMode(Platform.OS === 'ios');
     } else {
       onBack();
     }
@@ -103,8 +109,26 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
         <>
           {viewState === 'list' && (
             <View style={{ flex: 1 }}>
+              {Platform.OS === 'ios' && (
+                <View style={{
+                  backgroundColor: '#fffbeb',
+                  borderRadius: 20,
+                  padding: 16,
+                  marginBottom: 20,
+                  borderWidth: 1,
+                  borderColor: '#fef3c7',
+                  flexDirection: 'row',
+                  alignItems: 'center'
+                }}>
+                  <MaterialCommunityIcons name="information" size={24} color="#d97706" style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 13, color: '#b45309', fontWeight: '700', flex: 1, lineHeight: 18 }}>
+                    Nota: iOS no permite escanear redes Wi-Fi por motivos de seguridad. Por favor, ingresa el nombre de tu red manualmente a continuación.
+                  </Text>
+                </View>
+              )}
+
               <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '800', letterSpacing: 1, marginBottom: 24 }}>
-                REDES AL ALCANCE
+                {Platform.OS === 'ios' ? 'CONFIGURAR CONEXIÓN' : 'REDES AL ALCANCE'}
               </Text>
               <FlatList
                 data={networks || []}
@@ -113,6 +137,7 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                   <TouchableOpacity 
                     onPress={() => {
                       setSelectedSsid(item.ssid);
+                      setManualMode(false);
                       setViewState('input');
                     }}
                     style={{
@@ -134,10 +159,38 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
                     {item.secured && <MaterialCommunityIcons name="lock" size={20} color="#cbd5e1" />}
                   </TouchableOpacity>
                 )}
+                ListFooterComponent={
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedSsid('');
+                      setManualMode(true);
+                      setViewState('input');
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: 32,
+                      padding: 20,
+                      marginBottom: 16,
+                      borderWidth: 1,
+                      borderColor: '#3b82f6',
+                      borderStyle: 'dashed',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <MaterialCommunityIcons name="plus" size={24} color="#3b82f6" style={{ marginRight: 10 }} />
+                    <Text style={{ fontSize: 17, fontWeight: '700', color: '#3b82f6' }}>
+                      Ingresar red manualmente
+                    </Text>
+                  </TouchableOpacity>
+                }
                 ListEmptyComponent={
-                  <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 15 }}>
-                    No se detectaron redes Wi-Fi.
-                  </Text>
+                  Platform.OS === 'ios' ? null : (
+                    <Text style={{ textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 15, marginBottom: 20 }}>
+                      No se detectaron redes Wi-Fi.
+                    </Text>
+                  )
                 }
               />
             </View>
@@ -146,11 +199,36 @@ export default function WifiConfigScreen({ onBack, onConnectAction, networks, is
           {viewState === 'input' && (
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 12, color: '#94a3b8', fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>
-                CONECTANDO A
+                {manualMode ? 'INGRESAR RED WIFI' : 'CONECTANDO A'}
               </Text>
-              <Text style={{ fontSize: 32, fontWeight: '900', color: '#0f172a', fontStyle: 'italic', marginBottom: 40 }}>
-                {selectedSsid}
-              </Text>
+              
+              {manualMode ? (
+                <View style={{
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 24,
+                  paddingHorizontal: 20,
+                  height: 70,
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#3b82f6',
+                  marginBottom: 40
+                }}>
+                  <TextInput
+                    style={{ fontSize: 20, fontWeight: '900', color: '#0f172a', fontStyle: 'italic' }}
+                    placeholder="Nombre de red (SSID)"
+                    placeholderTextColor="#cbd5e1"
+                    value={selectedSsid}
+                    onChangeText={setSelectedSsid}
+                    editable={!sending}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              ) : (
+                <Text style={{ fontSize: 32, fontWeight: '900', color: '#0f172a', fontStyle: 'italic', marginBottom: 40 }}>
+                  {selectedSsid}
+                </Text>
+              )}
 
               <View style={{
                 backgroundColor: '#f8fafc',

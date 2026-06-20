@@ -61,6 +61,7 @@
                             </tr>
                             </thead>
                         </table>
+                        @if(count($emas) > 0)
                         <div class="col-lg-12 pt-4">
                             <h5>Datos @if($emas[0]->nombre == '')Ema1 @else{{ $emas[0]->nombre }} @endif</h5>
                             <table id="datosema1"
@@ -103,9 +104,10 @@
                                     <th data-field="id" data-formatter="editarDato" data-align="center">Editar</th>
                                 </tr>
                                 </thead>
-                            </table>
+                             </table>
                         </div>
-                        @if($emas[1]->mac != 'AA:AA:AA:AA:AA:AA')
+                        @endif
+                        @if(count($emas) > 1 && $emas[1]->mac != 'AA:AA:AA:AA:AA:AA')
                             <div class="col-lg-12 pt-4">
                             <h5>Datos @if($emas[1]->nombre == '')Ema2 @else{{ $emas[1]->nombre }} @endif</h5>
                             <table id="datosema2"
@@ -151,6 +153,11 @@
                                 </thead>
                             </table>
                         </div>
+                        @endif
+                        @if(count($emas) === 0)
+                            <div class="alert alert-warning mt-4 text-center">
+                                <strong>Atención:</strong> No hay estaciones registradas/asociadas a este establecimiento.
+                            </div>
                         @endif
                 </div>
             </div>
