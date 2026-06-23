@@ -56,7 +56,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
   const executeDeviceDiscovery = () => {
     try {
       console.log("App: Iniciando escaneo de dispositivos MICA por BLE...");
-      
+
       scanForDevices(
         (device) => {
           setDevices(prev => {
@@ -88,11 +88,11 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
     try {
       setConnectingId(rawDevice.id);
       console.log(`App: Intentando establecer conexión BLE con: ${rawDevice.name} (${rawDevice.id})`);
-      
+
       const connectedDevice = await connectToDevice(rawDevice);
       if (connectedDevice) {
         console.log("App: ¡Conectado a MICA por BLE exitosamente! (ID: " + connectedDevice.id + ")");
-        
+
         const name = connectedDevice.name || 'Estación MICA';
         const mappedDevice = {
           id: connectedDevice.id,
@@ -122,9 +122,9 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }}>
-      
+
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 40 }}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleBack}
           style={{
             width: 44,
@@ -138,10 +138,10 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             marginRight: 16
           }}
         >
-          <Feather 
-            name="chevron-left" 
-            size={24} 
-            color="#1e293b" 
+          <Feather
+            name="chevron-left"
+            size={24}
+            color="#1e293b"
           />
         </TouchableOpacity>
         <Text style={{ fontSize: 22, fontWeight: '900', color: '#0f172a', fontStyle: 'italic' }}>
@@ -153,10 +153,10 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
         <>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 100 }}>
             <View style={{ width: 180, height: 180, borderRadius: 48, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 40 }}>
-              <MaterialCommunityIcons 
-                name="bluetooth" 
-                size={90}       
-                color="#3b82f6" 
+              <MaterialCommunityIcons
+                name="bluetooth"
+                size={90}
+                color="#3b82f6"
               />
             </View>
             <Text style={{ fontSize: 24, fontWeight: '900', color: '#0f172a', fontStyle: 'italic', marginBottom: 16 }}>
@@ -168,7 +168,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
           </View>
 
           <View style={{ paddingBottom: 40 }}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setScanState('scanning')}
               style={{ backgroundColor: '#3b82f6', borderRadius: 20, paddingVertical: 18, alignItems: 'center' }}
             >
@@ -200,7 +200,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             </Text>
           }
           renderItem={({ item }) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => handleConnect(item)}
               disabled={connectingId !== null}
               style={{
@@ -232,17 +232,17 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
                   (() => {
                     const hasSignal = item.rssi !== undefined && item.rssi !== null;
                     const percentage = hasSignal ? getSignalPercentage(item.rssi) : 0;
-                    const config = hasSignal 
+                    const config = hasSignal
                       ? getSignalIconConfig(percentage)
                       : { icon: "signal-cellular-outline", color: "#94a3b8" };
 
                     return (
                       <>
-                        <MaterialCommunityIcons 
-                          name={config.icon} 
-                          size={18} 
-                          color={config.color} 
-                          style={{ marginRight: 6 }} 
+                        <MaterialCommunityIcons
+                          name={config.icon}
+                          size={18}
+                          color={config.color}
+                          style={{ marginRight: 6 }}
                         />
                         <Text style={{ fontSize: 12, color: config.color, fontWeight: '700' }}>
                           {hasSignal ? `Señal: ${percentage}%` : '--'}
@@ -260,7 +260,7 @@ export default function NewEmaScreen({ onBack, onConnectionSuccess }) {
             </Text>
           }
           ListFooterComponent={
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setScanState('scanning')}
               style={{ backgroundColor: '#f1f5f9', borderRadius: 20, paddingVertical: 18, alignItems: 'center', marginTop: 10 }}
             >
