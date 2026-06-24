@@ -51,7 +51,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }} contentContainerStyle={{ paddingBottom: 120 }}>
       {/* HEADER */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 28 }}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={onBack}
           disabled={sending}
           style={{
@@ -85,7 +85,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
 
       <View style={{ flexDirection: 'row', gap: 14, marginBottom: 28 }}>
         {/* MODO ESTACIÓN */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => !sending && setSelectedMode(0)}
           disabled={sending}
           style={{
@@ -114,18 +114,28 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
           }}>
             <MaterialCommunityIcons name="layers-outline" size={24} color={selectedMode === 0 ? '#ffffff' : '#3b82f6'} />
           </View>
-          <Text style={{ 
-            fontSize: 13, 
-            fontWeight: '800', 
+          <Text style={{
+            fontSize: 13,
+            fontWeight: '800',
             color: selectedMode === 0 ? '#ffffff' : '#0f172a',
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
+            textAlign: 'center'
           }}>
             ESTACIÓN
+          </Text>
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '500',
+            color: selectedMode === 0 ? 'rgba(255, 255, 255, 0.8)' : '#64748b',
+            marginTop: 4,
+            textAlign: 'center'
+          }}>
+            Se envían datos cada 30 minutos
           </Text>
         </TouchableOpacity>
 
         {/* MODO EXPERIMENTO */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => !sending && setSelectedMode(1)}
           disabled={sending}
           style={{
@@ -154,13 +164,23 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
           }}>
             <MaterialCommunityIcons name="flask-outline" size={24} color={selectedMode === 1 ? '#ffffff' : '#a855f7'} />
           </View>
-          <Text style={{ 
-            fontSize: 13, 
-            fontWeight: '800', 
+          <Text style={{
+            fontSize: 13,
+            fontWeight: '800',
             color: selectedMode === 1 ? '#ffffff' : '#0f172a',
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
+            textAlign: 'center'
           }}>
             EXPERIMENTO
+          </Text>
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '500',
+            color: selectedMode === 1 ? 'rgba(255, 255, 255, 0.8)' : '#64748b',
+            marginTop: 4,
+            textAlign: 'center'
+          }}>
+            Se envían datos cada 30 segundos
           </Text>
         </TouchableOpacity>
       </View>
@@ -171,7 +191,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
       </Text>
 
       <View style={{ flexDirection: 'row', gap: 14, marginBottom: 28 }}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => !sending && setWifiEnabled(true)}
           disabled={sending}
           style={{
@@ -187,7 +207,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
           <Text style={{ color: wifiEnabled === true ? 'white' : '#0f172a', fontWeight: '700', fontSize: 14 }}>SÍ</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             if (!sending) {
               setWifiEnabled(false);
@@ -348,7 +368,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
               <Text style={{ fontSize: 10, color: '#64748b', fontWeight: '700', letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>
                 Red seleccionada: <Text style={{ color: '#0f172a', fontWeight: '800' }}>{ssid}</Text>
               </Text>
-              
+
               <View style={{
                 backgroundColor: '#ffffff',
                 borderRadius: 20,
@@ -390,10 +410,10 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
                   borderColor: showBackupWifi ? '#3b82f6' : '#e2e8f0'
                 }}
               >
-                <MaterialCommunityIcons 
-                  name={showBackupWifi ? "checkbox-marked" : "checkbox-blank-outline"} 
-                  size={22} 
-                  color={showBackupWifi ? "#3b82f6" : "#64748b"} 
+                <MaterialCommunityIcons
+                  name={showBackupWifi ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={22}
+                  color={showBackupWifi ? "#3b82f6" : "#64748b"}
                   style={{ marginRight: 8 }}
                 />
                 <Text style={{ fontSize: 13, fontWeight: '700', color: showBackupWifi ? '#1e40af' : '#475569' }}>
@@ -406,7 +426,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
                   <Text style={{ fontSize: 10, color: '#64748b', fontWeight: '700', letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>
                     Red WiFi Secundaria
                   </Text>
-                  
+
                   <View style={{
                     backgroundColor: '#ffffff',
                     borderRadius: 20,
@@ -459,7 +479,7 @@ export default function InitialConfigScreen({ onSendConfig, onBack, networks, is
 
       {/* BOTÓN ENVIAR */}
       <View style={{ marginTop: 10 }}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleSend}
           disabled={!isFormValid || sending}
           style={{

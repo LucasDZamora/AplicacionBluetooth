@@ -6,14 +6,14 @@ import BatteryIndicator from '../components/BatteryIndicator';
 import { MaterialCommunityIcons, FontAwesome5, Feather, Ionicons } from '@expo/vector-icons';
 
 
-export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onChangeWifiState, onBack, onConfigWifi }) {
+export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onChangeWifiState, onBack, onConfigWifi, onDeleteDevice }) {
   const opMode = telemetry?.mode === 1 ? 'EXPERIMENTO' : 'ESTACIÓN';
   return (
     <ScrollView style={{ flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 24, paddingTop: 60 }}>
-      
+
       {/* HEADER */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 32 }}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={onBack}
           style={{
             width: 44,
@@ -27,10 +27,10 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
             marginRight: 16
           }}
         >
-          <Feather 
-            name="chevron-left" 
-            size={24} 
-            color="#1e293b" 
+          <Feather
+            name="chevron-left"
+            size={24}
+            color="#1e293b"
           />
         </TouchableOpacity>
         <Text style={{ fontSize: 22, fontWeight: '900', color: '#0f172a', fontStyle: 'italic' }}>
@@ -75,13 +75,13 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
             <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a' }}>
               {device?.name || 'Estación MICA'}
             </Text>
-            
+
             {/* 2. REEMPLAZO: Solo llamas al componente modular pasando la prop */}
-            <BatteryIndicator 
-              batteryLevel={telemetry?.battery} 
-              deviceId={device?.id} 
+            <BatteryIndicator
+              batteryLevel={telemetry?.battery}
+              deviceId={device?.id}
             />
-            
+
           </View>
 
         </View>
@@ -93,16 +93,17 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
       </Text>
 
       <View style={{ flexDirection: 'row', gap: 16, marginBottom: 32 }}>
-        
+
         {/* MODO ESTACIÓN */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => onChangeMode && onChangeMode('0')}
           style={{
             flex: 1,
             aspectRatio: 1,
             backgroundColor: opMode === 'ESTACIÓN' ? '#3b82f6' : '#ffffff',
             borderRadius: 28,
-            padding: 24,
+            paddingVertical: 16,
+            paddingHorizontal: 12,
             justifyContent: 'center',
             alignItems: 'center',
             borderWidth: 1,
@@ -121,34 +122,45 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
             backgroundColor: opMode === 'ESTACIÓN' ? 'rgba(255,255,255,0.2)' : '#eff6ff',
             justifyContent: 'center',
             alignItems: 'center',
-            marginBottom: 16
+            marginBottom: 12
           }}>
             {/* NUEVO ÍCONO VECTORIAL: LAYERS */}
-            <MaterialCommunityIcons 
-              name="layers-outline" 
-              size={24} 
-              color={opMode === 'ESTACIÓN' ? '#ffffff' : '#3b82f6'} 
+            <MaterialCommunityIcons
+              name="layers-outline"
+              size={24}
+              color={opMode === 'ESTACIÓN' ? '#ffffff' : '#3b82f6'}
             />
           </View>
-          <Text style={{ 
-            fontSize: 13, 
-            fontWeight: '800', 
+          <Text style={{
+            fontSize: 13,
+            fontWeight: '800',
             color: opMode === 'ESTACIÓN' ? '#ffffff' : '#0f172a',
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
+            textAlign: 'center'
           }}>
             ESTACIÓN
+          </Text>
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '500',
+            color: opMode === 'ESTACIÓN' ? 'rgba(255, 255, 255, 0.8)' : '#64748b',
+            marginTop: 4,
+            textAlign: 'center'
+          }}>
+            Se envían datos cada 30 minutos
           </Text>
         </TouchableOpacity>
 
         {/* MODO EXPERIMENTO */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => onChangeMode && onChangeMode('1')}
           style={{
             flex: 1,
             aspectRatio: 1,
             backgroundColor: opMode === 'EXPERIMENTO' ? '#a855f7' : '#ffffff',
             borderRadius: 28,
-            padding: 24,
+            paddingVertical: 16,
+            paddingHorizontal: 12,
             justifyContent: 'center',
             alignItems: 'center',
             borderWidth: 1,
@@ -167,22 +179,32 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
             backgroundColor: opMode === 'EXPERIMENTO' ? 'rgba(255,255,255,0.2)' : '#f3e8ff',
             justifyContent: 'center',
             alignItems: 'center',
-            marginBottom: 16
+            marginBottom: 12
           }}>
             {/* NUEVO ÍCONO VECTORIAL: FLASK */}
-            <FontAwesome5 
-              name="flask" 
-              size={20} 
-              color={opMode === 'EXPERIMENTO' ? '#ffffff' : '#a855f7'} 
+            <FontAwesome5
+              name="flask"
+              size={20}
+              color={opMode === 'EXPERIMENTO' ? '#ffffff' : '#a855f7'}
             />
           </View>
-          <Text style={{ 
-            fontSize: 13, 
-            fontWeight: '800', 
+          <Text style={{
+            fontSize: 13,
+            fontWeight: '800',
             color: opMode === 'EXPERIMENTO' ? '#ffffff' : '#0f172a',
-            letterSpacing: 0.5
+            letterSpacing: 0.5,
+            textAlign: 'center'
           }}>
             EXPERIMENTO
+          </Text>
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '500',
+            color: opMode === 'EXPERIMENTO' ? 'rgba(255, 255, 255, 0.8)' : '#64748b',
+            marginTop: 4,
+            textAlign: 'center'
+          }}>
+            Se envían datos cada 30 segundos
           </Text>
         </TouchableOpacity>
       </View>
@@ -213,10 +235,10 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
             alignItems: 'center',
             marginRight: 12
           }}>
-            <Feather 
-              name={telemetry?.wifi ? "wifi" : "wifi-off"} 
-              size={24} 
-              color={telemetry?.wifi ? '#137333' : '#c53929'} 
+            <Feather
+              name={telemetry?.wifi ? "wifi" : "wifi-off"}
+              size={24}
+              color={telemetry?.wifi ? '#137333' : '#c53929'}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -231,30 +253,78 @@ export default function DetailsEmaScreen({ device, telemetry, onChangeMode, onCh
 
         {/* Control switch y engranaje */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Switch 
+          <Switch
             value={!!telemetry?.wifi}
             onValueChange={(value) => onChangeWifiState && onChangeWifiState(value)}
             trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
             thumbColor={telemetry?.wifi ? '#3b82f6' : '#94a3b8'}
           />
-            <TouchableOpacity 
-              onPress={onConfigWifi}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: '#f1f5f9',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Feather 
-                name="settings" 
-                size={18} 
-                color="#64748b" 
-              />
-            </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onConfigWifi}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: '#f1f5f9',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Feather
+              name="settings"
+              size={18}
+              color="#64748b"
+            />
+          </TouchableOpacity>
         </View>
+      </View>
+
+      {/* SECCIÓN: ELIMINAR */}
+      <View style={{ alignItems: 'center', marginBottom: 60 }}>
+        <TouchableOpacity
+          onPress={onDeleteDevice}
+          style={{
+            width: 140,
+            height: 140,
+            backgroundColor: '#ffffff',
+            borderRadius: 28,
+            padding: 20,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: '#f1f5f9',
+            shadowColor: '#94a3b8',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.05,
+            shadowRadius: 15,
+            elevation: 2,
+          }}
+        >
+          <View style={{
+            width: 48,
+            height: 48,
+            borderRadius: 16,
+            backgroundColor: '#fee2e2',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 16
+          }}>
+            <Feather
+              name="trash-2"
+              size={22}
+              color="#ef4444"
+            />
+          </View>
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '900',
+            color: '#ef4444',
+            letterSpacing: 0.5,
+            textTransform: 'uppercase'
+          }}>
+            ELIMINAR
+          </Text>
+        </TouchableOpacity>
       </View>
 
     </ScrollView>

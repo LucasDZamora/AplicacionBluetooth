@@ -397,6 +397,61 @@ export default function App() {
     }
   };
 
+  const handleDeleteDevice = async () => {
+    if (!selectedDevice) return;
+
+    Alert.alert(
+      "Olvidar EMA",
+      "¿Estás seguro de que deseas olvidar este dispositivo EMA? Se desconectará y se eliminará de la lista de dispositivos vinculados.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Aceptar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const deviceIdToDelete = selectedDevice.id;
+              console.log(`App.js: Eliminando dispositivo EMA: ${deviceIdToDelete}`);
+
+              // 1. Detener segundo plano si corresponde
+              stopBackgroundBle();
+
+              // 2. Desconectar físicamente el dispositivo BLE
+              if (selectedDevice.rawDevice) {
+                try {
+                  const isConnected = await selectedDevice.rawDevice.isConnected();
+                  if (isConnected) {
+                    await selectedDevice.rawDevice.cancelConnection();
+                    console.log("App.js: Conexión cancelada físicamente.");
+                  }
+                } catch (connErr) {
+                  console.warn("App.js: Error al intentar desconectar físicamente:", connErr.message);
+                }
+              }
+
+              // 3. Eliminar de la lista de dispositivos vinculados en AsyncStorage
+              const stored = await AsyncStorage.getItem('LINKED_DEVICES');
+              if (stored) {
+                const list = JSON.parse(stored);
+                const updatedList = list.filter(id => id !== deviceIdToDelete);
+                await AsyncStorage.setItem('LINKED_DEVICES', JSON.stringify(updatedList));
+                console.log("App.js: Dispositivo eliminado de AsyncStorage.");
+              }
+
+              // 4. Limpiar estados y volver a home
+              setSelectedDevice(null);
+              setRefreshTrigger(prev => prev + 1);
+              setCurrentScreen('home');
+            } catch (err) {
+              console.error("App.js: Error al olvidar el dispositivo:", err);
+              Alert.alert("Error", "No se pudo olvidar el dispositivo correctamente.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleChangeOperatingMode = async (modeCode) => {
     try {
       const rawDeviceInstance = selectedDevice?.rawDevice;
@@ -565,6 +620,7 @@ export default function App() {
                 setWifiOrigin('details');
                 setCurrentScreen('wifi_config');
               }}
+              onDeleteDevice={handleDeleteDevice}
             />
           );
         }
@@ -580,7 +636,7 @@ export default function App() {
 
       <Modal
         transparent={true}
-        visible={showEmaWaitingOverlay}
+        visible={showEmaWaitingOverlay || (currentScreen === 'details' && (telemetry.battery === null || telemetry.battery === undefined || telemetry.battery === 0))}
         animationType="fade"
         onRequestClose={() => { }}
       >
@@ -613,7 +669,9 @@ export default function App() {
               marginBottom: 12,
               letterSpacing: 0.5
             }}>
-              En espera del EMA
+              {currentScreen === 'details' && (telemetry.battery === null || telemetry.battery === undefined || telemetry.battery === 0)
+                ? "Enviando credenciales de Wi-Fi al EMA"
+                : "En espera del EMA"}
             </Text>
             <Text style={{
               fontSize: 14,
