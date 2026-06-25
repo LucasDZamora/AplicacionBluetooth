@@ -261,10 +261,21 @@ export const subscribeToMicaData = (device, onDataReceived, onError) => {
     DATA_CHAR_UUID,
     (error, characteristic) => {
       if (error) {
-        console.error("BLE: Error en monitoreo de telemetría:", error);
+        // Ignoramos cancelaciones y desconexiones esperadas al salir o eliminar
+        const isCancelled = error.message && error.message.includes("cancelled");
+        const isDisconnected = error.message && error.message.includes("disconnected");
+
+        if (isCancelled || isDisconnected) {
+          console.log("BLE: Monitoreo finalizado limpiamente (Dispositivo desconectado o removido).");
+          return; // Salimos sin ejecutar los console.error ni el onError()
+        }
+
+        // Cualquier otro error imprevisto sí se reportará
+        console.error("BLE: Error real en monitoreo de telemetría:", error);
         onError && onError(error);
         return;
       }
+      
       if (characteristic && characteristic.value) {
         try {
           const rawString = decodeBase64(characteristic.value).replace(/\0/g, '').trim();

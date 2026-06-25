@@ -41,7 +41,13 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
         }
       }
 
-      const wifiList = await WifiReborn.reScanAndLoadWifiList();
+      let wifiList = [];
+      if (Platform.OS === 'android') {
+        wifiList = await WifiReborn.reScanAndLoadWifiList();
+      } else {
+        console.log("iOS detectado: El escaneo de redes Wi-Fi está deshabilitado por restricciones del sistema operativo.");
+        wifiList = [];
+      }
       
       if (!wifiList || !Array.isArray(wifiList)) {
         console.log("Hardware saturado o respuesta inválida. Inicializando arreglo vacío.");
@@ -77,7 +83,7 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
     } finally {
       const endTime = Date.now();
       const timeElapsed = endTime - startTime;
-      const minimumDuration = 5000; 
+      const minimumDuration = Platform.OS === 'android' ? 5000 : 0; 
 
       if (timeElapsed < minimumDuration) {
         const remainingTime = minimumDuration - timeElapsed;
@@ -99,6 +105,7 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
   // Exponemos únicamente lo que WifiConfigScreen necesita leer
   return {
     cellphoneNetworks,
-    loadingWifi
+    loadingWifi,
+    scanCellphoneWifi
   };
 }
