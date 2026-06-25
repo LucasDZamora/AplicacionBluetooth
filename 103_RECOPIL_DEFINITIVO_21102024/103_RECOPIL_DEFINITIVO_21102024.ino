@@ -235,7 +235,7 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 #include <HTTPClient.h>
 WiFiClient client;
 
-const char* serverName = "http://192.168.1.82/api_mica.php"; // REEMPLAZAR con la IP del servidor de XAMPP, por ejemplo http://192.168.1.100/sistema_mica/public/api_mica.php
+const char* serverName = "http://10.138.40.79/api_mica.php"; // REEMPLAZAR con la IP del servidor de XAMPP, por ejemplo http://192.168.1.100/sistema_mica/public/api_mica.php
 String apiKeyValue = "tPmAT5Ab3j7F9"; //acá va la clave
 String httpRequestData;
 String CADENA;

@@ -17,6 +17,7 @@ import {
   changeWifiState,
   sendStartCommand,
   connectToDevice,
+  stopScanning,
   manager
 } from './src/services/bluetoothService';
 
@@ -96,6 +97,8 @@ export default function App() {
     ssid: 'Desconectado'
   });
 
+  const [wifiErrorTrigger, setWifiErrorTrigger] = useState(false);
+
   // EFECTO: Monitoreo del nivel crítico de batería con histéresis
   useEffect(() => {
     const level = telemetry?.battery;
@@ -132,7 +135,7 @@ export default function App() {
   };
 
   // INVOCACIÓN DEL MODULO DE WI-FI
-  const { cellphoneNetworks, loadingWifi } = useWifiScanner(currentScreen, handlePermissionFallback);
+  const { cellphoneNetworks, loadingWifi, scanCellphoneWifi } = useWifiScanner(currentScreen, handlePermissionFallback);
 
   // EFECTO: Suscripción automática a telemetría al conectar/seleccionar un dispositivo
   useEffect(() => {
@@ -142,50 +145,75 @@ export default function App() {
     if (selectedDevice && selectedDevice.rawDevice) {
       console.log(`App.js: Iniciando monitoreo BLE y listeners para: ${selectedDevice.name}`);
 
-      // Suscribirse al canal de notificaciones de telemetría
-      telemetrySubscription = subscribeToMicaData(
-        selectedDevice.rawDevice,
-        (data) => {
-          console.log("App.js: Telemetría en tiempo real recibida ->", data);
+          // Suscribirse a las notificaciones de la característica de datos
+          telemetrySubscription = subscribeToMicaData(
+            selectedDevice.rawDevice,
+            (data) => {
+              console.log("App.js: Datos recibidos del EMA ->", data);
 
-          if (isWaitingForTelemetryRef.current) {
-            // Si esperamos Wi-Fi, comprobamos si la telemetría ya reporta conexión activa (wifi === 1)
-            // de lo contrario, seguimos esperando a que se complete la conexión o se agote el tiempo de espera.
-            const hasWifi = Number(data.wifi) === 1;
-            const shouldNavigate = !expectingWifiRef.current || hasWifi;
-
-            if (shouldNavigate) {
-              console.log("App.js: Condiciones de telemetría de configuración inicial cumplidas. Ocultando overlay...");
-              if (initialConfigTimeoutRef.current) {
-                clearTimeout(initialConfigTimeoutRef.current);
-                initialConfigTimeoutRef.current = null;
+              // CASO DE ERROR: El EMA avisa de forma síncrona que la clave falló
+              if (data === "WIFI_BAD_PASSWORD") {
+                console.log("App.js: ¡Contraseña incorrecta detectada!");
+                
+                // 1. Matamos el temporizador optimista para que no salte a 'details'
+                if (initialConfigTimeoutRef.current) {
+                  clearTimeout(initialConfigTimeoutRef.current);
+                  initialConfigTimeoutRef.current = null;
+                }
+                
+                // 2. Apagamos los estados de espera para quitar los Overlays de carga
+                isWaitingForTelemetryRef.current = false;
+                expectingWifiRef.current = false;
+                isExpectingDisconnectRef.current = false;
+                setShowEmaWaitingOverlay(false); // Oculta el modal "En espera del EMA"
+                
+                // 3. Lanzamos una alerta nativa para avisar al usuario
+                Alert.alert(
+                  "Error de Conexión",
+                  "El EMA no pudo conectarse. Por favor, verifica que el nombre de la red y la contraseña sean correctos e inténtalo de nuevo.",
+                  [{ text: "Corregir Datos" }]
+                );
+                return; // Cortamos el flujo aquí para que no intente procesar un JSON
               }
-              isWaitingForTelemetryRef.current = false;
-              expectingWifiRef.current = false;
-              isExpectingDisconnectRef.current = false;
-              setShowEmaWaitingOverlay(false);
-              setCurrentScreen('details');
+
+              // Tu lógica JSON normal para cuando sí llega telemetría válida...
+              if (typeof data === 'object' || (typeof data === 'string' && data.startsWith('{'))) {
+                try {
+                  const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+                  
+                  if (isWaitingForTelemetryRef.current) {
+                    const hasWifi = Number(parsedData.wifi) === 1;
+                    const shouldNavigate = !expectingWifiRef.current || hasWifi;
+
+                    if (shouldNavigate) {
+                      if (initialConfigTimeoutRef.current) {
+                        clearTimeout(initialConfigTimeoutRef.current);
+                        initialConfigTimeoutRef.current = null;
+                      }
+                      isWaitingForTelemetryRef.current = false;
+                      expectingWifiRef.current = false;
+                      isExpectingDisconnectRef.current = false;
+                      setShowEmaWaitingOverlay(false);
+                      setCurrentScreen('details');
+                    }
+                  }
+
+                  setTelemetry({
+                    battery: parsedData.battery,
+                    mode: parsedData.mode,
+                    wifi: parsedData.wifi,
+                    ssid: parsedData.ssid || (parsedData.wifi ? 'Conectado' : 'Desconectado'),
+                    configured: parsedData.configured
+                  });
+                } catch (e) {
+                  console.error("Error al parsear telemetría:", e);
+                }
+              }
+            },
+            (error) => {
+              console.error("App.js: Error en receptor de telemetría BLE:", error);
             }
-          }
-
-          // Si el dispositivo reporta que no está configurado, forzar redirección
-          if (data.configured === 0 && currentScreenRef.current !== 'initial_config') {
-            console.log("App.js: El MICA no está configurado. Redirigiendo a InitialConfigScreen...");
-            setCurrentScreen('initial_config');
-          }
-
-          setTelemetry({
-            battery: data.battery,
-            mode: data.mode,
-            wifi: data.wifi,
-            ssid: data.ssid || (data.wifi ? 'Conectado' : 'Desconectado'),
-            configured: data.configured
-          });
-        },
-        (error) => {
-          console.error("App.js: Error en receptor de telemetría BLE:", error);
-        }
-      );
+          );
 
       // Suscribirse al evento de desconexión no deseada
       disconnectSubscription = manager.onDeviceDisconnected(
@@ -413,6 +441,9 @@ export default function App() {
               const deviceIdToDelete = selectedDevice.id;
               console.log(`App.js: Eliminando dispositivo EMA: ${deviceIdToDelete}`);
 
+              // 0. Detener el escaneo activo para evitar logs infinitos 
+              stopScanning();
+
               // 1. Detener segundo plano si corresponde
               stopBackgroundBle();
 
@@ -586,6 +617,9 @@ export default function App() {
               onSendConfig={handleSendInitialConfig}
               networks={cellphoneNetworks}
               isLoadingNetworks={loadingWifi}
+              onRefreshNetworks={scanCellphoneWifi}
+              wifiErrorTrigger={wifiErrorTrigger}
+              resetWifiError={() => setWifiErrorTrigger(false)}
             />
           );
         }
@@ -595,11 +629,12 @@ export default function App() {
             <WifiConfigScreen
               networks={cellphoneNetworks}
               isLoadingNetworks={loadingWifi}
+              onRefreshNetworks={scanCellphoneWifi}
               onBack={() => {
                 setCurrentScreen(wifiOrigin === 'details' ? 'details' : 'new_ema');
               }}
-              onConnectAction={async (ssid, password) => {
-                await handleWifiConfigured(ssid, password);
+              onConnectAction={async (ssid, password, ssid2, password2) => {
+                await handleWifiConfigured(ssid, password, ssid2, password2);
               }}
             />
           );

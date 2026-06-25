@@ -105,6 +105,7 @@ export default function useWifiScanner(currentScreen, fallbackScreenCallback) {
   // Exponemos únicamente lo que WifiConfigScreen necesita leer
   return {
     cellphoneNetworks,
-    loadingWifi
+    loadingWifi,
+    scanCellphoneWifi
   };
 }

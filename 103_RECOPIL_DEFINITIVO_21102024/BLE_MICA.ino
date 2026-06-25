@@ -96,15 +96,22 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
         Serial.print("BLE: Recibido comando -> ");
         Serial.println(rxStr);
 
-        if (rxStr.startsWith("WIFI:")) {
-          String creds = rxStr.substring(5);
+        // ====================================================================
+        // CASO 1: COMANDOS DE CONFIGURACIÓN WI-FI
+        // ====================================================================
+        if (rxStr.startsWith("WIFI:") || rxStr.indexOf('|') > 0 || rxStr.indexOf(',') > 0) {
+          String creds = rxStr;
+          if (rxStr.startsWith("WIFI:")) {
+            creds = rxStr.substring(5);
+          }
+
+          // Sub-caso: Apagado explícito de Wi-Fi
           if (creds == "OFF") {
             adq = 0;
             connected = false;
             f = 0;
             WiFi.disconnect(true);
             
-            // Actualizar modo de muestreo según el modo g actual
             muestreo = (g == 0) ? 3 : 4;
             actualizarLedModo();
             Serial.println("BLE: WiFi desactivado por comando.");
@@ -113,9 +120,13 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
             lcd.clear();
             lcd.setCursor(1, 1);
             lcd.print("WiFi Desactivado");
+            
+            if (bleDeviceConnected && pDataChar != NULL) {
+              pDataChar->setValue("WIFI_DISABLED");
+              pDataChar->notify();
+            }
             delay(1500);
             
-            // Forzar inicio de mediciones offline de inmediato
             if (enMediciones) {
               unsigned long ahora = millis();
               if (ahora < PRIMEROS_MINUTOS) {
@@ -129,9 +140,9 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
               }
             }
           }
+          // Sub-caso: Encendido explícito (Intenta reconectar a las guardadas previamente)
           else if (creds == "ON") {
             adq = 1;
-            // Actualizar modo de muestreo según el modo g actual
             muestreo = (g == 0) ? 1 : 2;
             actualizarLedModo();
             Serial.println("BLE: WiFi activado por comando.");
@@ -144,14 +155,12 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
             lcd.print("Buscando red...");
             delay(1500);
             
-            // Forzar reconexión inmediata
             WiFi.mode(WIFI_STA);
             if (strlen(ssid1) > 0) {
               WiFi.disconnect();
               WiFi.begin(ssid1, password1);
             }
             
-            // Forzar inicio de mediciones online de inmediato
             if (enMediciones) {
               unsigned long ahora = millis();
               if (ahora < PRIMEROS_MINUTOS) {
@@ -165,8 +174,8 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
               }
             }
           }
+          // Sub-caso: Procesamiento y validación de NUEVAS credenciales enviadas
           else {
-            // Formato WIFI:ssid1|password1|ssid2|password2 o WIFI:ssid1|password1
             int sep1 = creds.indexOf('|');
             if (sep1 < 0) {
               sep1 = creds.indexOf(',');
@@ -196,87 +205,141 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
                 receivedPASS = remaining;
                 hasSecondaryWifi = false;
               }
-              wifiCredentialsReceived = true;
-              adq = 1; // Habilitar modo Wi-Fi
-              Serial.println("BLE: Credenciales parseadas (WIFI: SSID=" + receivedSSID + ", hasSecondary=" + String(hasSecondaryWifi ? "SI" : "NO") + ")");
               
-              // Si ya está en fase de mediciones/bucle principal, intentar conectar de inmediato
-              if (enMediciones) {
-                Serial.println("BLE: Intentando conectar a la nueva red Wi-Fi de forma inmediata...");
-                WiFi.mode(WIFI_STA);
-                WiFi.disconnect();
-                WiFi.begin(receivedSSID.c_str(), receivedPASS.c_str());
+              wifiCredentialsReceived = true;
+              adq = 1; 
+              Serial.println("BLE: Credenciales parseadas (SSID=" + receivedSSID + ", hasSecondary=" + String(hasSecondaryWifi ? "SI" : "NO") + ")");
+              
+              // 反 反 反 VALIDACIÓN SECUENCIAL DE AMBAS REDES 反 反 反
+              lcd.backlight();
+              WiFi.mode(WIFI_STA);
+              
+              // PRUEBA 1: Red Principal
+              lcd.clear();
+              lcd.setCursor(1, 1);
+              lcd.print("Probando WiFi 1...");
+              Serial.println("BLE: Intentando conectar a Red Principal: " + receivedSSID);
+              
+              WiFi.disconnect();
+              WiFi.begin(receivedSSID.c_str(), receivedPASS.c_str());
+              
+              unsigned long startConnect = millis();
+              while (WiFi.status() != WL_CONNECTED && millis() - startConnect < 10000) {
+                delay(500);
+                enviarDatosBLE(); 
+              }
+              
+              // PRUEBA 2: Red Secundaria (Si la principal falló y fue enviada una de respaldo)
+              if (WiFi.status() != WL_CONNECTED && hasSecondaryWifi && receivedSSID2.length() > 0) {
+                lcd.clear();
+                lcd.setCursor(1, 1);
+                lcd.print("Probando WiFi 2...");
+                Serial.println("BLE: Red principal falló. Intentando Red Secundaria: " + receivedSSID2);
                 
-                unsigned long startConnect = millis();
+                WiFi.disconnect();
+                WiFi.begin(receivedSSID2.c_str(), receivedPASS2.c_str());
+                
+                startConnect = millis();
                 while (WiFi.status() != WL_CONNECTED && millis() - startConnect < 10000) {
                   delay(500);
-                  enviarDatosBLE();
+                  enviarDatosBLE(); 
                 }
+              }
+              
+              // EVALUACIÓN DE RESULTADOS
+              if (WiFi.status() == WL_CONNECTED) {
+                connected = true;
+                f = 1;
                 
-                if (WiFi.status() == WL_CONNECTED) {
-                  connected = true;
-                  f = 1;
+                // Si la red 1 falló pero la red 2 se conectó, hacemos un "swap" o guardamos la Red 2 como la principal activa
+                if (WiFi.SSID() == receivedSSID2) {
+                  // La Red 2 fue la ganadora: la guardamos en la posición principal de la EEPROM
+                  strncpy(ssid1, receivedSSID2.c_str(), 32);
+                  strncpy(password1, receivedPASS2.c_str(), 32);
+                  
+                  // Dejamos la Red 1 (incorrecta) en el slot secundario por si acaso, o lo vaciamos
+                  strncpy(ssid2, receivedSSID.c_str(), 32);
+                  strncpy(password2, receivedPASS.c_str(), 32);
+                } else {
+                  // La Red 1 se conectó normalmente
+                  strncpy(ssid1, receivedSSID.c_str(), 32);
+                  strncpy(password1, receivedPASS.c_str(), 32);
+                  
                   if (hasSecondaryWifi) {
                     strncpy(ssid2, receivedSSID2.c_str(), 32);
                     strncpy(password2, receivedPASS2.c_str(), 32);
-                    EEPROM.begin(EEPROM_SIZE);
-                    EEPROM.put(64, ssid2);
-                    EEPROM.put(96, password2);
-                  } else {
-                    if (strcmp(ssid1, receivedSSID.c_str()) != 0) {
-                      strncpy(ssid2, ssid1, 32);
-                      strncpy(password2, password1, 32);
-                      EEPROM.begin(EEPROM_SIZE);
-                      EEPROM.put(64, ssid2);
-                      EEPROM.put(96, password2);
-                    }
                   }
-                  strncpy(ssid1, receivedSSID.c_str(), 32);
-                  strncpy(password1, receivedPASS.c_str(), 32);
-                  EEPROM.begin(EEPROM_SIZE);
-                  EEPROM.put(0, ssid1);
-                  EEPROM.put(32, password1);
-                  EEPROM.commit();
-                  Serial.println("BLE: Conexión exitosa. Credenciales guardadas en EEPROM.");
-                  
-                  lcd.backlight();
-                  lcd.clear();
-                  lcd.setCursor(1, 1);
-                  lcd.print("WiFi Conectado!");
-                  delay(1500);
-                } else {
-                  connected = false;
-                  f = 0;
-                  Serial.println("BLE: Falló la conexión a la nueva red Wi-Fi.");
-                  lcd.backlight();
-                  lcd.clear();
-                  lcd.setCursor(1, 1);
-                  lcd.print("Error Conexión WiFi");
-                  delay(1500);
                 }
-              } else {
-                // Solo feedback visual si estamos en setup
-                pixels.fill(pixels.Color(0, 255, 255));
-                pixels.show();
+
+                // Guardar definitivamente en la EEPROM
+                EEPROM.begin(EEPROM_SIZE);
+                EEPROM.put(0, ssid1);
+                EEPROM.put(32, password1);
+                EEPROM.put(64, ssid2);
+                EEPROM.put(96, password2);
+                EEPROM.commit();
                 
+                Serial.println("BLE: Conexión exitosa. Credenciales almacenadas.");
                 lcd.clear();
                 lcd.setCursor(1, 1);
-                lcd.print("Credenciales OK");
+                lcd.print("WiFi Conectado!");
+                
+                if (bleDeviceConnected && pDataChar != NULL) {
+                  pDataChar->setValue("WIFI_OK");
+                  pDataChar->notify();
+                }
+                delay(1500);
+              } 
+              else {
+                // Ambas contraseñas fallaron o no se alcanzó cobertura
+                connected = false;
+                f = 0;
+                WiFi.disconnect(true); 
+                
+                wifiCredentialsReceived = false; 
+                adq = 0;
+
+                Serial.println("BLE: Error de autenticación. Ambas redes fallaron.");
+                lcd.clear();
+                lcd.setCursor(1, 1);
+                lcd.print("Error de Clave!");
                 lcd.setCursor(1, 2);
-                lcd.print("Conectando WiFi...");
+                lcd.print("Ambas fallaron");
+                
+                if (bleDeviceConnected && pDataChar != NULL) {
+                  pDataChar->setValue("WIFI_BAD_PASSWORD");
+                  pDataChar->notify();
+                }
+                delay(2000);
+                
+                if (!enMediciones) {
+                  pixels.fill(pixels.Color(0, 255, 255)); // Volver a Celeste de espera
+                  pixels.show();
+                  lcd.clear();
+                  lcd.setCursor(1, 1);
+                  lcd.print(" BLE Conectado! ");
+                  lcd.setCursor(1, 2);
+                  lcd.print(" Corrija en la App");
+                }
               }
             }
           }
         } 
+        // ====================================================================
+        // CASO 2: COMANDO START
+        // ====================================================================
         else if (rxStr == "START") {
           configReceived = true;
           Serial.println("BLE: Configuración inicial confirmada (START).");
         }
+        // ====================================================================
+        // CASO 3: COMANDOS DE CAMBIO DE MODO
+        // ====================================================================
         else if (rxStr.startsWith("MODE:")) {
           String modeStr = rxStr.substring(5);
           int newMode = modeStr.toInt();
           g = newMode;
-          // Actualizar modo de muestreo
+          
           if (adq == 1) {
             muestreo = (g == 0) ? 1 : 2;
           } else {
@@ -285,8 +348,7 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
           estado = g;
           Serial.println("BLE: Cambio de modo a " + String(g == 0 ? "ESTACION" : "EXPERIMENTO"));
           
-          // Mostrar confirmación visual inmediata en la pantalla LCD
-          lcd.backlight(); // Asegurar backlight encendido
+          lcd.backlight();
           lcd.clear();
           lcd.setCursor(1, 1);
           lcd.print(" Modo cambiado: ");
@@ -297,124 +359,16 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
           actualizarLedModo();
           
           if (enMediciones) {
-            // Forzar a volver a la página 1 para mostrar el cambio de modo de inmediato
             paginaActual = 1;
             tiempoInicio = millis();
-            
-            // Forzar inicio inmediato de la nueva medición
             unsigned long ahora = millis();
             if (ahora < PRIMEROS_MINUTOS) {
               tiempo_B = ahora - intervalo_B;
             } else {
-              if (g == 0) { // ESTACION
+              if (g == 0) {
                 tiempo_C = ahora - intervalo_C;
-              } else { // EXPERIMENTO
+              } else {
                 tiempo_B = ahora - intervalo_B;
-              }
-            }
-          }
-        }
-        else if (rxStr.indexOf('|') > 0 || rxStr.indexOf(',') > 0) {
-          // Formato simple retrocompatible: ssid1|password1|ssid2|password2 o ssid1|password1
-          int sep1 = rxStr.indexOf('|');
-          if (sep1 < 0) {
-            sep1 = rxStr.indexOf(',');
-          }
-          if (sep1 > 0) {
-            receivedSSID = rxStr.substring(0, sep1);
-            String remaining = rxStr.substring(sep1 + 1);
-            int sep2 = remaining.indexOf('|');
-            if (sep2 > 0) {
-              receivedPASS = remaining.substring(0, sep2);
-              String remaining2 = remaining.substring(sep2 + 1);
-              int sep3 = remaining2.indexOf('|');
-              if (sep3 > 0) {
-                receivedSSID2 = remaining2.substring(0, sep3);
-                receivedPASS2 = remaining2.substring(sep3 + 1);
-                hasSecondaryWifi = true;
-              } else {
-                if (remaining2.length() > 0) {
-                  receivedSSID2 = remaining2;
-                  receivedPASS2 = "";
-                  hasSecondaryWifi = true;
-                } else {
-                  hasSecondaryWifi = false;
-                }
-              }
-            } else {
-              receivedPASS = remaining;
-              hasSecondaryWifi = false;
-            }
-            wifiCredentialsReceived = true;
-            adq = 1; // Habilitar modo Wi-Fi
-            Serial.println("BLE: Credenciales parseadas (SSID=" + receivedSSID + ", hasSecondary=" + String(hasSecondaryWifi ? "SI" : "NO") + ")");
-            
-            // Si ya está en fase de mediciones/bucle principal, intentar conectar de inmediato
-            if (enMediciones) {
-              Serial.println("BLE: Intentando conectar a la nueva red Wi-Fi...");
-              WiFi.mode(WIFI_STA);
-              WiFi.disconnect();
-              WiFi.begin(receivedSSID.c_str(), receivedPASS.c_str());
-              
-              unsigned long startConnect = millis();
-              while (WiFi.status() != WL_CONNECTED && millis() - startConnect < 10000) {
-                delay(500);
-                enviarDatosBLE();
-              }
-              
-              if (WiFi.status() == WL_CONNECTED) {
-                connected = true;
-                f = 1;
-                if (hasSecondaryWifi) {
-                  strncpy(ssid2, receivedSSID2.c_str(), 32);
-                  strncpy(password2, receivedPASS2.c_str(), 32);
-                  EEPROM.begin(EEPROM_SIZE);
-                  EEPROM.put(64, ssid2);
-                  EEPROM.put(96, password2);
-                } else {
-                  if (strcmp(ssid1, receivedSSID.c_str()) != 0) {
-                    strncpy(ssid2, ssid1, 32);
-                    strncpy(password2, password1, 32);
-                    EEPROM.begin(EEPROM_SIZE);
-                    EEPROM.put(64, ssid2);
-                    EEPROM.put(96, password2);
-                  }
-                }
-                strncpy(ssid1, receivedSSID.c_str(), 32);
-                strncpy(password1, receivedPASS.c_str(), 32);
-                EEPROM.begin(EEPROM_SIZE);
-                EEPROM.put(0, ssid1);
-                EEPROM.put(32, password1);
-                EEPROM.commit();
-                Serial.println("BLE: Conexión exitosa y guardada.");
-                
-                lcd.backlight();
-                lcd.clear();
-                lcd.setCursor(1, 1);
-                lcd.print("WiFi Conectado!");
-                delay(1500);
-              } else {
-                connected = false;
-                f = 0;
-                Serial.println("BLE: Falló conexión.");
-                lcd.backlight();
-                lcd.clear();
-                lcd.setCursor(1, 1);
-                lcd.print("Error Conexión WiFi");
-                delay(1500);
-              }
-            } else {
-              // Solo alteramos LED y LCD si no estamos en fase de mediciones/bucle principal
-              if (!enMediciones) {
-                // LED: CIAN/CELESTE
-                pixels.fill(pixels.Color(0, 255, 255));
-                pixels.show();
-                
-                lcd.clear();
-                lcd.setCursor(1, 1);
-                lcd.print("Credenciales OK");
-                lcd.setCursor(1, 2);
-                lcd.print("Conectando WiFi...");
               }
             }
           }
